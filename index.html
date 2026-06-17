@@ -33,7 +33,7 @@
 html,body{height:100%;overflow:hidden}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;display:flex;flex-direction:column}
 #app{display:flex;flex-direction:column;height:100vh;background:var(--surface)}
-#hdr{padding:10px 14px 0;flex-shrink:0;border-bottom:1px solid var(--border)}
+#hdr{padding:10px 14px 0;flex-shrink:0;border-bottom:1px solid var(--border);position:relative}
 #proj-row{display:flex;align-items:center;gap:8px;padding-bottom:8px}
 #proj-btn{flex:1;display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:var(--text);font-size:14px;font-weight:600;text-align:left;padding:3px 0;min-width:0}
 #proj-btn span.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
@@ -337,11 +337,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span class="name" id="proj-name">選擇專案</span>
         <span class="ch">▾</span>
       </button>
+      <div id="auth-avatar" title="" style="width:24px;height:24px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;position:relative"></div>
       <button id="new-btn" title="新旅遊專案">+</button>
     </div>
-    <div id="auth-bar" style="display:flex;align-items:center;justify-content:space-between;padding:5px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;flex-shrink:0">
-      <span id="auth-info" style="color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px"></span>
-      <button id="auth-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">Google 登入同步</button>
+    <div id="auth-menu" style="display:none;position:absolute;right:14px;top:42px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:50;min-width:180px">
+      <div id="auth-info" style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px"></div>
+      <button id="auth-btn" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Google 登入同步</button>
     </div>
     <div id="dd"></div>
     <div id="tabs">
