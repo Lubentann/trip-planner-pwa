@@ -207,11 +207,8 @@ function bindStars(container, starClass, onRate) {
 //  DB
 // =============================================================
 async function loadDB() {
-  window._loadDBCount = (window._loadDBCount || 0) + 1;
-  const myCallNum = window._loadDBCount;
   await restoreAuth();
   const user = getCurrentUser();
-  console.log('[loadDB] 第', myCallNum, '次呼叫，user=', JSON.stringify(user));
 
   if (!user) {
     // 未登入：顯示登入閘門，不載入任何行程資料
@@ -1881,7 +1878,7 @@ function updateAuthUI(knownUser) {
   const info = $('auth-info');
   if (!btn) return;
   if (user) {
-    if (info) info.textContent = (user.email || '已登入') + ' [debug:' + JSON.stringify(user) + ']';
+    if (info) info.textContent = user.email || '已登入';
     btn.textContent = '登出';
     btn.onclick = async () => {
       if (btn.disabled) return;
@@ -1929,7 +1926,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── PWA: 註冊 Service Worker（提供離線快取）──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(e => console.warn('Service Worker 註冊失敗', e));
+    navigator.serviceWorker.register('./sw.js').then((registration) => {
+      registration.update(); // 主動檢查是否有新版 sw.js，加速更新生效（不用等瀏覽器自然排程）
+    }).catch(e => console.warn('Service Worker 註冊失敗', e));
   });
 }
 
