@@ -207,8 +207,11 @@ function bindStars(container, starClass, onRate) {
 //  DB
 // =============================================================
 async function loadDB() {
+  window._loadDBCount = (window._loadDBCount || 0) + 1;
+  const myCallNum = window._loadDBCount;
   await restoreAuth();
   const user = getCurrentUser();
+  console.log('[loadDB] 第', myCallNum, '次呼叫，user=', JSON.stringify(user));
 
   if (!user) {
     // 未登入：顯示登入閘門，不載入任何行程資料
@@ -1878,7 +1881,7 @@ function updateAuthUI(knownUser) {
   const info = $('auth-info');
   if (!btn) return;
   if (user) {
-    if (info) info.textContent = user.email || '已登入';
+    if (info) info.textContent = (user.email || '已登入') + ' [debug:' + JSON.stringify(user) + ']';
     btn.textContent = '登出';
     btn.onclick = async () => {
       if (btn.disabled) return;
