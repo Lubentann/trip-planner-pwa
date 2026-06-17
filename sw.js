@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v8'; // 修正日期框間距改用 flexbox，版本號往上加
+const CACHE_NAME = 'trip-planner-v9'; // 修正底部 bar 重疊 bug 與安全區域間距，版本號往上加
 const ASSETS = [
   './',
   './index.html',
