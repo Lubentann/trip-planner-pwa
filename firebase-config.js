@@ -1,7 +1,8 @@
 // Firebase 設定 — PWA 版本，使用官方 Web SDK（不受擴充功能 CSP 限制，可以用 CDN）
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  signOut as fbSignOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
   getDatabase, ref, get, set
@@ -21,11 +22,22 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db_ = getDatabase(app);
 
+// 手機瀏覽器對 signInWithPopup 的支援度不穩定（sessionStorage 在某些環境會被分區隔離），
+// 改用 signInWithRedirect：整頁跳轉到 Google 登入頁，登入完成後跳回來，相容性更好
+function isMobile() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 // 與擴充功能版本相同的函式介面，讓 app.js 不需要改呼叫方式
 window.signInWithGoogle = async function() {
   const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
-  return { uid: result.user.uid, email: result.user.email };
+  if (isMobile()) {
+    await signInWithRedirect(auth, provider);
+    return null; // 頁面會跳轉，這裡不會真正執行到
+  } else {
+    const result = await signInWithPopup(auth, provider);
+    return { uid: result.user.uid, email: result.user.email };
+  }
 };
 
 window.signOut = async function() {
@@ -37,6 +49,15 @@ window.getCurrentUser = function() {
 };
 
 window.restoreAuth = async function() {
+  // 先檢查是不是從 redirect 登入跳轉回來的（手機版流程）
+  try {
+    const redirectResult = await getRedirectResult(auth);
+    if (redirectResult && redirectResult.user) {
+      return { uid: redirectResult.user.uid, email: redirectResult.user.email };
+    }
+  } catch(e) {
+    console.warn('redirect 登入結果處理失敗', e);
+  }
   // PWA 版本用 onAuthStateChanged 自動恢復，這裡只是等待初始化完成
   return new Promise((resolve) => {
     const unsub = onAuthStateChanged(auth, (user) => {
