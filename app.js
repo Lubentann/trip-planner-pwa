@@ -1,5 +1,5 @@
-// ── chrome.* API 相容層（PWA 環境沒有 chrome 物件，用標準 Web API 模擬）──
-const chrome = {
+// ── chrome.* API 相容層（PWA 環境用標準 Web API 模擬，避免跟瀏覽器原生 window.chrome 物件衝突）──
+window.chromeShim = {
   storage: {
     local: {
       get: async (keys) => {
@@ -31,6 +31,9 @@ const chrome = {
     onMessage: { addListener: () => {} }
   }
 };
+// 底下整份程式碼歷史上都是呼叫「chrome.xxx」，這裡用 var 在函式作用域外重新指向我們的 shim
+// 用 var 而非 const/let，因為瀏覽器原生 window.chrome 是用其他方式定義的，var 重新賦值不會撞名衝突
+var chrome = window.chromeShim;
 
 // =============================================================
 //  Constants
