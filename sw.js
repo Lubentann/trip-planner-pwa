@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v11'; // 改用 space-between 重新嘗試修正按鈕靠右問題，版本號往上加
+const CACHE_NAME = 'trip-planner-v14'; // 用 requestAnimationFrame 確保滾動位置還原時機正確，版本號往上加
 const ASSETS = [
   './',
   './index.html',
