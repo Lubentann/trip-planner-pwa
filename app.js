@@ -2,14 +2,18 @@
 window.chromeShim = {
   storage: {
     local: {
-      get: async (keys) => {
+      get: (keys, callback) => {
         const result = {};
         const list = Array.isArray(keys) ? keys : [keys];
         list.forEach(k => {
           const v = localStorage.getItem('tp_' + k);
           if (v !== null) { try { result[k] = JSON.parse(v); } catch { result[k] = v; } }
         });
-        return result;
+        if (typeof callback === 'function') {
+          callback(result); // 舊式 callback 寫法：chrome.storage.local.get([...], cb)
+          return;
+        }
+        return Promise.resolve(result); // await 寫法：await chrome.storage.local.get([...])
       },
       set: async (obj) => {
         Object.entries(obj).forEach(([k, v]) => localStorage.setItem('tp_' + k, JSON.stringify(v)));
@@ -1869,9 +1873,7 @@ function updateAuthUI() {
   const info = $('auth-info');
   if (!btn) return;
   if (user) {
-    chrome.storage.local.get(['fbEmail'], r => {
-      if (info) info.textContent = r.fbEmail || '已登入';
-    });
+    if (info) info.textContent = user.email || '已登入';
     btn.textContent = '登出';
     btn.onclick = async () => {
       if (btn.disabled) return;
