@@ -235,7 +235,8 @@ async function loadDB() {
   await loadPending();
   renderAll();
   showTab('home');
-  updateAuthUI();
+  console.log('[loadDB] 確認登入狀態:', user ? user.email : '未登入', '即將呼叫 updateAuthUI');
+  updateAuthUI(user);
 
   if (!db.projects.length && !r.onboardDone) {
     setTimeout(() => om('m-onboard'), 400);
@@ -1871,8 +1872,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // =============================================================
 //  Auth UI
 // =============================================================
-function updateAuthUI() {
-  const user = getCurrentUser();
+function updateAuthUI(knownUser) {
+  const user = knownUser !== undefined ? knownUser : getCurrentUser();
   const btn  = $('auth-btn');
   const info = $('auth-info');
   if (!btn) return;
