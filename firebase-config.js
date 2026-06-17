@@ -92,3 +92,4 @@ window.forceAccountSwitch = async function() { return true; };
 onAuthStateChanged(auth, (user) => {
   if (window.onAuthChange) window.onAuthChange(user);
 });
+
