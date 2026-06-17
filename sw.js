@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v5'; // 加強內嵌瀏覽器提醒文字與加入主畫面教學，版本號往上加
+const CACHE_NAME = 'trip-planner-v7'; // 排序改成依據+方向分離設計，版本號往上加
 const ASSETS = [
   './',
   './index.html',
