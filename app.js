@@ -232,7 +232,6 @@ async function loadDB() {
   if (r.activeProject && db.projects.some(p => p.id === r.activeProject)) ap = r.activeProject;
   else if (db.projects.length && !ap) ap = db.projects[0].id;
 
-  await loadPending();
   renderAll();
   showTab('home');
   console.log('[loadDB] 確認登入狀態:', user ? user.email : '未登入', '即將呼叫 updateAuthUI');
@@ -267,15 +266,6 @@ function showLoginGate() {
 function showApp() {
   $('login-gate').style.display = 'none';
   $('app').style.display = '';
-}
-
-async function loadPending() {
-  const r = await chrome.storage.local.get(['pendingPlace']);
-  if (r.pendingPlace && r.pendingPlace.name) {
-    pending = r.pendingPlace;
-    await chrome.storage.local.remove('pendingPlace');
-    showBanner();
-  }
 }
 
 // =============================================================
@@ -1725,16 +1715,6 @@ document.addEventListener('DOMContentLoaded', () => {
   on('btn-onboard-start', 'click', () => dismissOnboard(true));
   on('btn-onboard-skip',  'click', () => dismissOnboard(false));
   on('first-run-tip',     'click', openNewProj);
-  on('btn-reload-maps',   'click', () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-      if (tabs[0] && /maps\.google|google\.com\/maps|maps\.app\.goo\.gl/.test(tabs[0].url)) {
-        chrome.tabs.reload(tabs[0].id);
-        showToast('✅ Google Maps 重整中…');
-      } else {
-        chrome.tabs.create({ url: 'https://www.google.com/maps' });
-      }
-    });
-  });
 
   // Tabs
   on('tb-home',     'click', () => showTab('home'));
@@ -1818,28 +1798,7 @@ document.addEventListener('DOMContentLoaded', () => {
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
   });
 
-  // Storage listener（content.js 透過 background.js 寫入 Firebase 後，側邊欄重新拉取雲端資料）
-  chrome.storage.onChanged.addListener(async (changes) => {
-    if (changes.pendingPlace?.newValue?.name) {
-      pending = changes.pendingPlace.newValue;
-      chrome.storage.local.remove('pendingPlace');
-      showBanner();
-    }
-    if (changes.switchToWish?.newValue) {
-      chrome.storage.local.remove('switchToWish');
-      const cloud = await fbRead();
-      if (cloud && cloud.projects) {
-        db = cloud;
-        if (!db.wishlist) db.wishlist = {};
-        if (!db.trips) db.trips = {};
-      }
-      showTab('wish');
-      setTimeout(() => {
-        const card = document.querySelector('.wish-card');
-        if (card) { card.classList.add('highlight'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-      }, 40);
-    }
-  });
+  // 注意：PWA 沒有 Maps content script，不需要監聽跨來源的 storage 變化通知
 
   // 鍵盤左右方向鍵切換日期（行程 Tab 有效）
   document.addEventListener('keydown', e => {
