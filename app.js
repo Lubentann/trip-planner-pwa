@@ -1,4 +1,56 @@
-// ── chrome.* API 相容層（PWA 環境用標準 Web API 模擬，避免跟瀏覽器原生 window.chrome 物件衝突）──
+// ── 偵測 LINE / Instagram / Facebook 等內嵌瀏覽器（in-app webview）──
+// Google 自 2021 年起政策性封鎖所有嵌入式 webview 對 OAuth 登入端點的請求，
+// 這些環境裡不管程式碼寫得多正確，登入都會被 Google 主動擋下，顯示令人困惑的錯誤。
+// 解法是在偵測到這類環境時，直接顯示提醒畫面，引導使用者改用手機原生瀏覽器開啟。
+(function detectInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  const isLine = /\bLine\//i.test(ua);
+  const isFacebook = /FBAN|FBAV/i.test(ua);
+  const isInstagram = /Instagram/i.test(ua);
+  if (!isLine && !isFacebook && !isInstagram) return;
+
+  const appName = isLine ? 'LINE' : (isInstagram ? 'Instagram' : 'Facebook');
+  const url = window.location.href;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.body.innerHTML = `
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:#15171a;color:#e8e8e8;font-family:-apple-system,sans-serif">
+        <div style="font-size:40px">⚠️</div>
+        <div style="font-size:17px;font-weight:600">請複製連結到瀏覽器開啟</div>
+        <div style="font-size:13px;color:#a0a0a0;max-width:300px;line-height:1.8">
+          目前是用 ${appName} 內建的瀏覽器開啟，Google 帳號登入在這個環境裡一定無法使用，包含「以外部瀏覽器開啟」這個選項也不一定有效。<br><br>
+          請照下面步驟操作：
+        </div>
+        <div style="background:#1d2024;border:1px solid #3a3d44;border-radius:10px;padding:14px 16px;max-width:300px;text-align:left;font-size:13px;line-height:2">
+          <div>① 點下方「複製連結」</div>
+          <div>② 離開 ${appName}，打開手機的 Safari 或 Chrome</div>
+          <div>③ 貼上連結並前往</div>
+        </div>
+        <div style="background:#22252b;border:1px solid #3a3d44;border-radius:8px;padding:10px 14px;font-size:12px;word-break:break-all;max-width:300px;color:#52b788">${url}</div>
+        <button id="copy-link-btn" style="background:#52b788;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;margin-top:2px">複製連結</button>
+        <div id="copy-status" style="font-size:12px;color:#52b788;min-height:16px"></div>
+        <div style="border-top:1px solid #2a2d33;width:100%;max-width:300px;margin-top:10px;padding-top:14px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">加到主畫面，下次不用再複製</div>
+          <div style="background:#1d2024;border:1px solid #3a3d44;border-radius:10px;padding:14px 16px;max-width:300px;text-align:left;font-size:12px;line-height:2;color:#c0c0c0">
+            <div><b style="color:#e8e8e8">iPhone（Safari）：</b>點下方分享圖示 <span style="color:#52b788">⬆️</span> → 「加入主畫面」</div>
+            <div style="margin-top:6px"><b style="color:#e8e8e8">Android（Chrome）：</b>點右上角選單 ⋮ → 「加到主畫面」</div>
+          </div>
+        </div>
+      </div>`;
+    const btn = document.getElementById('copy-link-btn');
+    const status = document.getElementById('copy-status');
+    if (btn) btn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(url);
+        if (status) status.textContent = '已複製，請貼到瀏覽器網址列開啟';
+      } catch {
+        if (status) status.textContent = '複製失敗，請手動長按上方連結複製';
+      }
+    };
+  });
+  window.__inAppBrowserBlocked = true;
+})();
+
 window.chromeShim = {
   storage: {
     local: {
@@ -1707,6 +1759,7 @@ function cm(id) { $(id).classList.remove('open'); eid = null; }
 //  DOMContentLoaded — 靜態事件綁定
 // =============================================================
 document.addEventListener('DOMContentLoaded', () => {
+  if (window.__inAppBrowserBlocked) return; // 內嵌瀏覽器環境已顯示提醒畫面，不需要繼續初始化
   // Header
   on('proj-btn', 'click', toggleDD);
   on('new-btn',  'click', openNewProj);
@@ -1833,11 +1886,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // =============================================================
 function updateAuthUI(knownUser) {
   const user = knownUser !== undefined ? knownUser : getCurrentUser();
-  const btn  = $('auth-btn');
-  const info = $('auth-info');
+  const btn    = $('auth-btn');
+  const info   = $('auth-info');
+  const avatar = $('auth-avatar');
   if (!btn) return;
   if (user) {
     if (info) info.textContent = user.email || '已登入';
+    if (avatar) {
+      const initial = (user.email || '?').trim().charAt(0).toUpperCase();
+      avatar.textContent = initial;
+      avatar.title = user.email || '';
+    }
     btn.textContent = '登出';
     btn.onclick = async () => {
       if (btn.disabled) return;
@@ -1846,6 +1905,8 @@ function updateAuthUI(knownUser) {
         await signOut();
         db = { projects: [], wishlist: {}, trips: {} };
         ap = null;
+        const menu = $('auth-menu');
+        if (menu) menu.style.display = 'none';
         await loadDB(); // 沒有登入了，loadDB 會自動切回登入閘門
       } catch(err) {
         console.warn('登出失敗', err);
@@ -1855,10 +1916,23 @@ function updateAuthUI(knownUser) {
     };
   } else {
     if (info) info.textContent = '未登入';
+    if (avatar) { avatar.textContent = ''; avatar.title = ''; }
     btn.textContent = 'Google 登入同步';
     btn.onclick = () => doLogin(btn);
   }
 }
+
+// ── 帳號頭像：點擊切換選單顯示，點選單外面自動關閉 ──
+document.addEventListener('click', (e) => {
+  const avatar = $('auth-avatar');
+  const menu   = $('auth-menu');
+  if (!avatar || !menu) return;
+  if (avatar.contains(e.target)) {
+    menu.style.display = (menu.style.display === 'none' || !menu.style.display) ? 'block' : 'none';
+  } else if (!menu.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+});
 
 // ── 共用登入流程（閘門按鈕、側邊欄按鈕都呼叫這個）──
 async function doLogin(triggerBtn) {
@@ -1878,6 +1952,7 @@ async function doLogin(triggerBtn) {
 
 // ── 登入閘門按鈕綁定 ──
 document.addEventListener('DOMContentLoaded', () => {
+  if (window.__inAppBrowserBlocked) return;
   const gateBtn = document.getElementById('login-gate-btn');
   if (gateBtn) gateBtn.onclick = () => doLogin(gateBtn);
 });
