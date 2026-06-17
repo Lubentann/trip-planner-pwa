@@ -490,6 +490,9 @@ function renderWish() {
   if (existingChecked.length) {
     window._checkedWishIds = new Set([...existingChecked].map(cb => cb.dataset.wishId));
   }
+  // 重渲染前記住分類篩選列的橫向滾動位置，重渲後還原（否則每次點選都會被彈回最左邊）
+  const existingFilterBar = document.getElementById('wish-filter-bar');
+  window._wishFilterScrollLeft = existingFilterBar ? existingFilterBar.scrollLeft : 0;
 
   const wishes = db.wishlist[ap] || [];
   const el     = $('pg-wish');
@@ -503,18 +506,19 @@ function renderWish() {
   html += `<div id="wish-search-row">
     <input id="wish-search" placeholder="搜尋地點…" value="${esc(wishFilter.query)}">
   </div>
-  <div id="wish-filter-bar">
-    <button class="filter-chip ${wishFilter.cat === 'all' ? 'active' : ''}" data-filter-cat="all">全部</button>
-    ${allCats.map(c => `<button class="filter-chip ${wishFilter.cat === c ? 'active' : ''}" data-filter-cat="${esc(c)}">${esc(c)}</button>`).join('')}
-    <button class="filter-chip ${wishFilter.cat === 'unscheduled' ? 'active' : ''}" data-filter-cat="unscheduled">未排入</button>
-    <div style="flex:1"></div>
-    <div style="display:flex;align-items:center;gap:4px">
+  <div id="wish-filter-row">
+    <div id="wish-filter-bar">
+      <button class="filter-chip ${wishFilter.cat === 'all' ? 'active' : ''}" data-filter-cat="all">全部</button>
+      ${allCats.map(c => `<button class="filter-chip ${wishFilter.cat === c ? 'active' : ''}" data-filter-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+      <button class="filter-chip ${wishFilter.cat === 'unscheduled' ? 'active' : ''}" data-filter-cat="unscheduled">未排入</button>
+    </div>
+    <div id="wish-sort-row">
       <select id="wish-sort" style="font-size:11px;padding:3px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer">
         <option value="rating"    ${wishFilter.sortField==='rating'   ?'selected':''}>依評分</option>
         <option value="name"      ${wishFilter.sortField==='name'     ?'selected':''}>依名稱</option>
         <option value="createdAt" ${wishFilter.sortField==='createdAt'?'selected':''}>依加入時間</option>
       </select>
-      <button id="wish-sort-dir" title="切換排序方向" style="font-size:12px;width:26px;height:26px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center">${wishFilter.sortDir==='desc'?'↓':'↑'}</button>
+      <button id="wish-sort-dir" title="切換排序方向" style="font-size:12px;width:26px;height:26px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${wishFilter.sortDir==='desc'?'↓':'↑'}</button>
     </div>
   </div>`;
 
@@ -611,6 +615,14 @@ function renderWish() {
 }
 
 function bindWishControls(el) {
+  // 還原重渲染前的橫向滾動位置，避免每次點選分類/排序都被彈回最左邊。
+  // 用 requestAnimationFrame 延遲到下一個畫面更新週期，確保瀏覽器已完成新內容的版面配置，
+  // 否則 scrollLeft 賦值可能在容器寬度還沒計算完成前就被忽略。
+  const filterBar = $('wish-filter-bar');
+  if (filterBar && window._wishFilterScrollLeft !== undefined) {
+    requestAnimationFrame(() => { filterBar.scrollLeft = window._wishFilterScrollLeft; });
+  }
+
   on('wish-add-btn',  'click', () => openWish());
   on('wish-batch-btn','click', openBatchImport);
 
