@@ -257,6 +257,10 @@ async function saveDB() {
 function showLoginGate() {
   $('login-gate').style.display = 'flex';
   $('app').style.display = 'none';
+  const statusEl = $('login-gate-status');
+  if (statusEl && window.lastAuthError) {
+    statusEl.textContent = '上次登入發生問題：' + window.lastAuthError;
+  }
 }
 
 function showApp() {
@@ -1907,7 +1911,7 @@ async function doLogin(triggerBtn) {
     await loadDB();
   } catch(e) {
     console.warn('登入失敗', e);
-    if (statusEl) statusEl.textContent = '登入失敗，請再試一次';
+    if (statusEl) statusEl.textContent = '登入失敗：' + (e.message || e.code || '未知錯誤');
     if (triggerBtn) { triggerBtn.textContent = '使用 Google 帳號登入'; triggerBtn.disabled = false; }
   }
 }
