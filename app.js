@@ -1192,10 +1192,14 @@ function showTab(t) {
     if (bar) bar.style.display = 'none';
     document.querySelectorAll('.wish-check:checked').forEach(cb => cb.checked = false);
   }
+  // 離開「行程」頁時強制隱藏今日路線導航/匯出行程 bar，避免殘留疊在其他頁面上
+  if (t !== 'timeline') {
+    const tlBar = $('timeline-bar');
+    if (tlBar) tlBar.classList.remove('show');
+  }
   if (t === 'home')       renderHome();
   else if (t === 'wish')     renderWish();
   else if (t === 'timeline') renderTimeline();
-  else $('timeline-bar').classList.remove('show');
   closeDD();
 }
 
