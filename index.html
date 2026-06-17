@@ -164,7 +164,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .f input,.f textarea,.f select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;font-size:13px;color:var(--text);font-family:inherit;transition:border .14s;resize:vertical}
 .f input:focus,.f textarea:focus,.f select:focus{outline:none;border-color:var(--accent-m)}
 .f textarea{min-height:60px}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .bprimary{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:11px;font-size:14px;font-weight:500;cursor:pointer;margin-top:4px}
 .bprimary:hover{opacity:.88}
 .empty{text-align:center;padding:36px 16px;color:var(--text3)}
@@ -397,7 +397,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="f"><label>專案名稱</label><input id="pi-name" placeholder="例：日本東北自駕 2025"></div>
     <div class="f"><label>目的地</label><input id="pi-dest" placeholder="例：岩手、秋田、青森"></div>
     <div class="f"><label>出發 ～ 結束日期</label>
-      <div class="frow"><input type="date" id="pi-s"><input type="date" id="pi-e"></div>
+      <div class="frow">
+        <input type="date" id="pi-s" aria-label="出發日期">
+        <input type="date" id="pi-e" aria-label="結束日期">
+      </div>
     </div>
     <div class="f"><label>主題顏色</label>
       <div class="copts" id="copts">
