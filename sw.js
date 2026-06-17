@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v1';
+const CACHE_NAME = 'trip-planner-v2'; // 每次更新程式碼後，記得把版本號往上加，否則舊快取永遠不會被清除
 const ASSETS = [
   './',
   './index.html',
@@ -24,20 +24,19 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // 只快取同網域的請求，Firebase API 一律走網路（不快取，確保資料即時）
+  // 只處理同網域的請求，Firebase API 一律走網路（不快取，確保資料即時）
   const url = new URL(event.request.url);
   if (url.origin !== location.origin) return;
 
+  // 改為「網路優先」策略：先試著拿最新版本，網路失敗時才退回快取（離線可用）。
+  // 之前用「快取優先」會導致 app.js 更新後手機永遠抓不到新版，只能等快取自然過期。
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((res) => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return res;
-      }).catch(() => cached);
-    })
+    fetch(event.request).then((res) => {
+      if (res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(event.request))
   );
 });
