@@ -1,8 +1,9 @@
-const CACHE_NAME = 'trip-planner-v2'; // 每次更新程式碼後，記得把版本號往上加，否則舊快取永遠不會被清除
+const CACHE_NAME = 'trip-planner-v3'; // 因為這次又改了快取清單，版本號需要往上加才會生效
 const ASSETS = [
   './',
   './index.html',
   './app.js',
+  './firebase-config.js',
   './manifest.json',
   './icons/icon128.png'
 ];
