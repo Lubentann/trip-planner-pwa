@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>旅程規劃</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2d6a4f">
+<link rel="apple-touch-icon" href="icons/icon128.png">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f6f2;--surface:#fff;--surface2:#f0efe9;
+  --border:#e2e0d8;--border2:#cccabd;
+  --text:#1a1916;--text2:#6b6a62;--text3:#9c9a8e;
+  --accent:#2d6a4f;--accent-l:#e8f4ee;--accent-m:#52b788;
+  --amber:#b5690a;--amber-l:#fdf3e0;
+  --coral:#c0392b;--coral-l:#fdf0ee;
+  --blue:#1a56a0;--blue-l:#eef3fc;
+  --r:10px;--rl:14px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#18171a;--surface:#242228;--surface2:#2e2c33;
+    --border:#3a3840;--border2:#4e4c56;
+    --text:#f0eed8;--text2:#a09e90;--text3:#6e6c60;
+    --accent:#52b788;--accent-l:#1a2e23;--accent-m:#52b788;
+    --amber:#f0a500;--amber-l:#2a2010;
+    --coral:#e05a4e;--coral-l:#2a1510;
+    --blue:#5b9bd5;--blue-l:#0f1e38;
+  }
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;display:flex;flex-direction:column}
+#app{display:flex;flex-direction:column;height:100vh;background:var(--surface)}
+#hdr{padding:10px 14px 0;flex-shrink:0;border-bottom:1px solid var(--border)}
+#proj-row{display:flex;align-items:center;gap:8px;padding-bottom:8px}
+#proj-btn{flex:1;display:flex;align-items:center;gap:6px;background:none;border:none;cursor:pointer;color:var(--text);font-size:14px;font-weight:600;text-align:left;padding:3px 0;min-width:0}
+#proj-btn span.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+#proj-btn .ch{color:var(--text3);font-size:11px;flex-shrink:0;transition:transform .18s}
+#proj-btn.open .ch{transform:rotate(180deg)}
+#new-btn{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+#dd{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:6px;display:none;max-height:220px;overflow-y:auto}
+#dd.open{display:block}
+.pi{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border)}
+.pi:last-child{border:none}
+.pi:hover{background:var(--surface2)}
+.pi.active{background:var(--accent-l)}
+.pdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.pinfo{flex:1;min-width:0}
+.pinfo .pn{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pinfo .pm{font-size:11px;color:var(--text3)}
+.pedit{width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:5px;font-size:12px;flex-shrink:0}
+.pedit:hover{background:var(--accent-l);color:var(--accent)}
+.pdel{width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:5px;font-size:12px;flex-shrink:0}
+.pdel:hover{background:var(--coral-l);color:var(--coral)}
+#tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tb{flex:1;background:none;border:none;cursor:pointer;padding:10px 4px 9px;font-size:13px;font-weight:500;color:var(--text3);display:flex;align-items:center;justify-content:center;border-bottom:2px solid transparent;transition:color .14s,border-color .14s}
+.tb .ico{font-size:17px}
+.tb.active{color:var(--accent);border-bottom-color:var(--accent)}
+#content{flex:1;overflow-y:scroll;padding:0 12px 120px}
+#content::-webkit-scrollbar{width:3px}
+#content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+#content::-webkit-scrollbar-track{background:transparent}
+#maps-banner{background:var(--accent-l);border:1px solid var(--accent-m);border-radius:var(--r);padding:10px 12px;margin:10px 0 4px;display:none}
+#maps-banner.show{display:block}
+.mb-title{font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px}
+.mb-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mb-btn{width:100%;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:8px;font-size:13px;font-weight:500;cursor:pointer}
+.mb-btn:hover{opacity:.85}
+.shd{display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px}
+.shd h2{font-size:13px;font-weight:600}
+.add-btn{display:flex;align-items:center;gap:4px;background:#2d6a4f;color:#fff;border:none;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer}
+@media(prefers-color-scheme:dark){.add-btn{background:#1f5c3f;}}
+.add-btn.batch{background:#2d6a4f;}
+@media(prefers-color-scheme:dark){.add-btn.batch{background:#1f5c3f;}}
+.card{background:var(--surface2);border-radius:var(--rl);padding:11px 12px;margin-bottom:8px;border:1px solid var(--border)}
+.crow{display:flex;align-items:flex-start;gap:10px}
+.cbody{flex:1;min-width:0}
+.ctitle{font-weight:500;font-size:13px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmeta{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:3px}
+.cdesc{font-size:12px;color:var(--text2);margin-top:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cactions{display:flex;gap:4px;flex-shrink:0}
+.tag{display:inline-flex;align-items:center;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:500}
+.t-teal{background:var(--accent-l);color:var(--accent)}
+.t-amber{background:var(--amber-l);color:var(--amber)}
+.t-coral{background:var(--coral-l);color:var(--coral)}
+.t-blue{background:var(--blue-l);color:var(--blue)}
+.ib{width:26px;height:26px;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:5px;font-size:12px;display:flex;align-items:center;justify-content:center}
+.ib:hover{background:var(--surface)}
+.ib.del:hover{background:var(--coral-l);color:var(--coral)}
+.map-lnk{display:inline-flex;align-items:center;gap:3px;color:var(--accent);font-size:11px;text-decoration:none;margin-top:4px;font-weight:500}
+.dhd{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--border)}
+/* Date nav */
+#date-nav{display:flex;align-items:center;gap:6px;margin:12px 0 4px;background:var(--surface2);border-radius:var(--r);padding:6px 8px;border:1px solid var(--border)}
+.dnav-arr{width:28px;height:28px;border:none;background:none;cursor:pointer;color:var(--text2);font-size:16px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .12s}
+.dnav-arr:hover:not(:disabled){background:var(--border)}
+.dnav-arr:disabled{color:var(--text3);cursor:default}
+#date-label{flex:1;text-align:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--text);padding:4px 0;border-radius:6px;transition:background .12s;user-select:none}
+#date-label:hover{background:var(--border)}
+#date-dd{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:4px;display:none;max-height:200px;overflow-y:auto}
+#date-dd.open{display:block}
+.ddi{padding:9px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border)}
+.ddi:last-child{border:none}
+.ddi:hover{background:var(--surface2)}
+.ddi.active{background:var(--accent-l);color:var(--accent);font-weight:500}
+/* Bottom action bar for timeline */
+#timeline-bar{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px;display:none;gap:8px;z-index:10}
+#timeline-bar.show{display:flex}
+#wish-multi-bar{bottom:0!important}
+.bar-btn{flex:1;border:none;border-radius:var(--r);padding:11px 8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.bar-btn.nav{background:var(--accent);color:#fff;letter-spacing:.2px}
+.bar-btn.nav:hover{filter:brightness(1.12)}
+.bar-btn.exp{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.bar-btn.exp:hover{background:var(--border)}
+/* Expenses */
+.esum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.ecard{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:11px}
+.ecard .el{font-size:10px;color:var(--text3);font-weight:500;text-transform:uppercase;letter-spacing:.3px}
+.ecard .ea{font-size:19px;font-weight:600;margin-top:3px}
+.ecard .eu{font-size:11px;font-weight:400;color:var(--text3);margin-left:2px}
+/* Stars */
+.stars{display:flex;gap:3px}
+.star{font-size:18px;cursor:pointer;color:var(--border2);transition:color .1s;line-height:1}
+.star.on{color:#f59e0b}
+.sched-btn{font-size:11px;padding:3px 8px;background:var(--blue-l);color:var(--blue);border:none;border-radius:6px;cursor:pointer;font-weight:500;white-space:nowrap}
+.sched-cnt{font-size:10px;color:var(--text3);font-style:italic}
+/* Day checks — fixed alignment */
+.day-checks{display:flex;flex-direction:column;gap:2px;max-height:160px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px}
+.day-check{display:flex;flex-direction:row;align-items:center;gap:10px;padding:5px 0;cursor:pointer;border-bottom:1px solid var(--border)}
+.day-check:last-child{border-bottom:none}
+.day-check input[type=checkbox]{flex-shrink:0;width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0;display:block}
+.day-check span{font-size:12px;line-height:1.3;flex:1}
+/* Slots */
+.day-slots{margin-top:8px}
+.day-slot{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin-bottom:6px}
+.day-slot-hd{font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+.add-slot-btn{font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;padding:3px 0;font-weight:500}
+.slot-entry{margin-bottom:8px}
+.slot-note{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:12px;color:var(--text);font-family:inherit}
+/* Export modal */
+.export-day-checks{display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;margin-bottom:10px}
+.export-day-check{display:flex;flex-direction:row;align-items:center;gap:10px;padding:5px 0;cursor:pointer;border-bottom:1px solid var(--border)}
+.export-day-check:last-child{border-bottom:none}
+.export-day-check input[type=checkbox]{flex-shrink:0;width:16px;height:16px;accent-color:var(--accent);cursor:pointer;margin:0}
+.export-day-check span{font-size:12px;flex:1}
+.export-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.exp-btn{padding:10px;border:none;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.exp-btn.csv{background:var(--blue-l);color:var(--blue)}
+.exp-btn.csv:hover{opacity:.85}
+.exp-btn.copy{background:var(--accent-l);color:var(--accent)}
+.exp-btn.copy:hover{opacity:.85}
+.copy-result{margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px;font-size:11px;color:var(--text2);white-space:pre-wrap;max-height:200px;overflow-y:auto;display:none}
+.copy-result.show{display:block}
+/* Modal */
+.mwrap{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:100;opacity:0;pointer-events:none;transition:opacity .18s}
+.mwrap.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border-radius:var(--rl) var(--rl) 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:16px 14px 28px;transform:translateY(30px);transition:transform .22s}
+.mwrap.open .modal{transform:translateY(0)}
+.mtitle{font-size:15px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.mclose{width:26px;height:26px;border:none;background:var(--surface2);border-radius:50%;cursor:pointer;color:var(--text2);font-size:13px;display:flex;align-items:center;justify-content:center}
+.f{margin-bottom:11px}
+.f label{display:block;font-size:10px;font-weight:500;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
+.f input,.f textarea,.f select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;font-size:13px;color:var(--text);font-family:inherit;transition:border .14s;resize:vertical}
+.f input:focus,.f textarea:focus,.f select:focus{outline:none;border-color:var(--accent-m)}
+.f textarea{min-height:60px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.bprimary{width:100%;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:11px;font-size:14px;font-weight:500;cursor:pointer;margin-top:4px}
+.bprimary:hover{opacity:.88}
+.empty{text-align:center;padding:36px 16px;color:var(--text3)}
+.empty .ei{font-size:32px;margin-bottom:10px}
+.empty p{font-size:12px;line-height:1.6}
+.copts{display:flex;gap:6px;flex-wrap:wrap}
+.copt{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.copt.sel{border-color:var(--text)}
+.hstats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 0 16px}
+.hstat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 10px;text-align:center;cursor:default}
+.hstat-click{cursor:pointer;transition:background .14s}
+.hstat-click:hover{background:var(--border)}
+.hstat .hsv{font-size:26px;font-weight:700;color:var(--text);margin-bottom:4px}
+.hstat .hsl{font-size:11px;color:var(--text3);font-weight:400}
+.travel-mode-btn{padding:10px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer;transition:all .14s;font-family:inherit;text-align:center}
+.travel-mode-btn:hover{background:var(--border)}
+.travel-mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.transit-seg{font-size:12px;color:var(--blue);text-decoration:none;padding:6px 10px;background:var(--blue-l);border-radius:6px;display:block}
+.transit-seg:hover{opacity:.85}
+.drag-handle{font-size:14px;color:var(--text3);cursor:grab;padding:0 4px 0 0;flex-shrink:0;user-select:none;touch-action:none;line-height:1;letter-spacing:-1px}
+.drag-handle:active{cursor:grabbing}
+.trip-card{transition:opacity .15s;cursor:default}
+.trip-card.dragging{opacity:.25;pointer-events:none}
+.drag-placeholder-card{background:var(--accent-l);border:2px dashed var(--accent-m);border-radius:var(--rl);margin-bottom:8px;min-height:60px;transition:height .1s}
+.onboard-step{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)}
+.onboard-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.onboard-text{flex:1}
+.onboard-title{font-size:13px;font-weight:500;margin-bottom:2px}
+.onboard-desc{font-size:11px;color:var(--text3);line-height:1.5}
+#refresh-reminder{background:var(--blue-l);border-bottom:1px solid var(--blue);padding:8px 14px;font-size:11px;color:var(--blue);font-weight:500;display:none;line-height:1.5;flex-shrink:0;word-break:keep-all}
+#refresh-reminder.show{display:block}
+#first-run-tip{background:var(--accent-l);border-top:1px solid var(--accent-m);padding:10px 14px;font-size:12px;color:var(--accent);font-weight:500;cursor:pointer;display:none;text-align:center;flex-shrink:0}
+#first-run-tip.show{display:block}
+
+/* 地點搜尋按鈕（wish & trip modal）*/
+.map-search-btn{flex-shrink:0;width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:16px;text-decoration:none;color:var(--text2);transition:background .12s}
+.map-search-btn:hover{background:var(--border)}
+
+/* ── 以下為 v2 新增樣式 ── */
+
+/* 行程全覽模式 */
+#timeline-overview{display:none;flex-direction:column;gap:6px;margin:10px 0}
+#timeline-overview.show{display:flex}
+.ov-day{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;cursor:pointer;transition:background .12s}
+.ov-day:hover{background:var(--border)}
+.ov-day-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.ov-day-label{font-size:12px;font-weight:600;color:var(--text)}
+.ov-day-count{font-size:11px;color:var(--text3)}
+.ov-day-spots{font-size:11px;color:var(--text2);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov-day-bar{height:3px;border-radius:2px;background:var(--accent-m);margin-top:6px;transition:width .2s;max-width:100%}
+
+/* 迷你日期欄 */
+#mini-date-bar{display:flex;gap:5px;overflow-x:auto;padding:10px 0 6px;scrollbar-width:none;-ms-overflow-style:none}
+#mini-date-bar::-webkit-scrollbar{display:none}
+.mini-day-btn{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 8px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface2);cursor:pointer;min-width:40px;transition:all .12s}
+.mini-day-btn:hover{background:var(--border)}
+.mini-day-btn.active{background:var(--accent);border-color:var(--accent)}
+.mini-day-btn .mdb-d{font-size:10px;font-weight:600;color:var(--text2)}
+.mini-day-btn.active .mdb-d{color:#fff}
+.mini-day-btn .mdb-n{font-size:9px;color:var(--text3)}
+.mini-day-btn.active .mdb-n{color:rgba(255,255,255,.8)}
+.mini-day-badge{font-size:9px;background:var(--accent-m);color:#fff;border-radius:8px;padding:1px 5px;font-weight:600;min-width:16px;text-align:center}
+.mini-day-btn.active .mini-day-badge{background:rgba(255,255,255,.3);color:#fff}
+
+/* 全覽 / 單日切換按鈕 */
+.view-toggle{display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:3px}
+.vt-btn{padding:4px 10px;border-radius:5px;border:none;background:none;font-size:11px;font-weight:600;color:var(--text3);cursor:pointer;transition:all .12s}
+.vt-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+/* 每日時間摘要 */
+.day-time-summary{font-size:11px;color:var(--text3);padding:4px 2px 8px;display:flex;align-items:center;gap:6px}
+.day-time-summary span.hl{color:var(--accent);font-weight:600}
+
+/* 願望清單搜尋 + 篩選 */
+#wish-search-row{display:flex;gap:6px;align-items:center;margin:10px 0 6px}
+#wish-search{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;color:var(--text);font-family:inherit}
+#wish-search:focus{outline:none;border-color:var(--accent-m)}
+.filter-chip{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:500;color:var(--text2);cursor:pointer;white-space:nowrap;transition:all .12s}
+.filter-chip.active{background:var(--accent-l);color:var(--accent);border-color:var(--accent-m)}
+#wish-filter-bar{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+#wish-filter-bar::-webkit-scrollbar{display:none}
+
+/* 首頁倒數天 + 進度 */
+.countdown-badge{display:inline-flex;align-items:center;gap:5px;background:var(--accent-l);color:var(--accent);font-size:12px;font-weight:600;padding:4px 10px;border-radius:20px;margin-bottom:12px}
+.prog-bar-wrap{margin:12px 0 4px}
+.prog-bar-label{font-size:11px;color:var(--text3);margin-bottom:4px;display:flex;justify-content:space-between}
+.prog-bar-track{height:4px;background:var(--surface2);border-radius:2px;border:1px solid var(--border)}
+.prog-bar-fill{height:100%;border-radius:2px;background:var(--accent);transition:width .3s}
+
+/* 刪除地點 Undo Toast 顯示 */
+#undo-toast.show{opacity:1;pointer-events:all}
+
+/* 大眾運輸提示圖示 */
+.transit-tip{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--amber-l);color:var(--amber);font-size:10px;font-weight:700;cursor:default;margin-left:4px;flex-shrink:0;position:relative}
+.transit-tip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);font-size:11px;font-weight:400;padding:5px 9px;border-radius:7px;white-space:nowrap;pointer-events:none;z-index:50;line-height:1.4;max-width:200px;white-space:normal;text-align:center}
+
+/* 行程加入成功動畫 */
+@keyframes trip-highlight{
+  0%{border-color:var(--accent-m);background:rgba(82,183,136,0.18)}
+  20%{border-color:var(--accent-m);background:rgba(82,183,136,0.18)}
+  100%{border-color:var(--border);background:var(--surface2)}
+}
+.trip-card.highlight{animation:trip-highlight 1s ease-out forwards}
+
+/* 排入行程後願望清單地點標示 */
+.sched-done-tag{font-size:10px;padding:1px 7px;background:var(--accent-l);color:var(--accent);border-radius:20px;font-weight:500}
+
+  0%{border-color:var(--accent-m);background:rgba(82,183,136,0.15)}
+  15%{border-color:var(--accent-m);background:rgba(82,183,136,0.15)}
+  100%{border-color:var(--border);background:var(--surface2)}
+}
+@keyframes wish-highlight{
+  0%{border-color:var(--accent-m);background:rgba(82,183,136,0.15)}
+  15%{border-color:var(--accent-m);background:rgba(82,183,136,0.15)}
+  100%{border-color:var(--border);background:var(--surface2)}
+}
+.wish-card.highlight{animation:wish-highlight 0.7s ease-out forwards}
+.day-summary{padding:8px 2px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--border);border-radius:4px}
+.day-summary:last-child{border-bottom:none}
+.day-summary:hover{background:var(--surface2);padding-left:6px;padding-right:6px}
+.ds-label{font-size:10px;font-weight:500;color:var(--text3);margin-bottom:2px;letter-spacing:.2px}
+.ds-names{font-size:11px;color:var(--text2);line-height:1.4}
+.ds-empty{color:var(--text3);font-style:italic}
+.vc-row1{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.vc-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.vc-row2{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
+.vc-row3{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:0}
+.vc-dur{font-size:12px;color:var(--text3)}
+.vc-meta{font-size:12px;color:var(--text3)}
+.vc-map{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none;font-weight:500}
+.vc-map:hover{text-decoration:underline}
+.vc-day{font-size:12px;color:var(--accent)}
+.vc-note{font-size:12px;color:var(--text2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tag{display:inline-flex;align-items:center;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:500}
+
+.wish-check{flex-shrink:0;width:15px;height:15px;accent-color:var(--accent);cursor:pointer;margin:0;opacity:0.6;transition:opacity .15s}
+.wish-check:hover,.wish-check:checked{opacity:1}
+.day-check input[type=checkbox],.export-day-check input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;opacity:0.4;transition:opacity .15s;cursor:pointer;margin:0}
+.day-check input[type=checkbox]:hover,.day-check input[type=checkbox]:checked,.export-day-check input[type=checkbox]:checked{opacity:1}
+.batch-row{display:grid;grid-template-columns:1fr 1fr 36px 32px;gap:6px;align-items:stretch}
+.batch-row input{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;width:100%;height:36px}
+.batch-row input:focus{outline:none;border-color:var(--accent-m)}
+.batch-row-del{width:32px;height:36px;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:5px;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.batch-row-del:hover{background:var(--coral-l);color:var(--coral)}
+.batch-map-btn{font-size:13px;padding:0;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;font-weight:500;white-space:nowrap;flex-shrink:0;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;height:36px;width:36px;transition:background .12s}
+.batch-map-btn:hover{background:var(--border);color:var(--text)}
+.batch-header{display:grid;grid-template-columns:1fr 1fr 36px 32px;gap:6px;margin-bottom:4px}
+.batch-header span{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;padding:0 2px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conflict-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px}
+.conflict-name{font-size:13px;font-weight:500;margin-bottom:2px}
+.conflict-date{font-size:11px;color:var(--text3);margin-bottom:8px}
+.conflict-actions{display:flex;gap:6px;align-items:center}
+.conflict-actions select{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;color:var(--text);font-family:inherit}
+.conflict-del-btn{padding:6px 10px;border:none;border-radius:6px;background:var(--coral-l);color:var(--coral);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.conflict-del-btn.active{background:var(--coral);color:#fff}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:8px 18px;border-radius:20px;font-size:12px;font-weight:500;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="login-gate" style="display:none;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center">
+  <div style="font-size:40px">🗺️</div>
+  <div style="font-size:18px;font-weight:600">旅程規劃</div>
+  <div style="font-size:13px;color:var(--text2);max-width:260px;line-height:1.6">登入後即可在電腦與手機間同步你的行程，資料安全存放在你的帳號裡</div>
+  <button id="login-gate-btn" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px">使用 Google 帳號登入</button>
+  <div id="login-gate-status" style="font-size:12px;color:var(--text3);min-height:16px"></div>
+</div>
+
+<div id="app" style="display:none">
+
+  <div id="hdr">
+    <div id="proj-row">
+      <button id="proj-btn">
+        <div class="pdot" id="hdr-dot" style="background:var(--accent)"></div>
+        <span class="name" id="proj-name">選擇專案</span>
+        <span class="ch">▾</span>
+      </button>
+      <button id="new-btn" title="新旅遊專案">+</button>
+    </div>
+    <div id="auth-bar" style="display:flex;align-items:center;justify-content:space-between;padding:5px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;flex-shrink:0">
+      <span id="auth-info" style="color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px">未登入（僅本機儲存）</span>
+      <button id="auth-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">Google 登入同步</button>
+    </div>
+    <div id="dd"></div>
+    <div id="tabs">
+      <button class="tb" id="tb-home">首頁</button>
+      <button class="tb" id="tb-wish">願望清單</button>
+      <button class="tb" id="tb-timeline">行程</button>
+    </div>
+  </div>
+  <div id="first-run-tip">👆 點右上角 + 新增你的第一個旅遊專案</div>
+  <div id="refresh-reminder">🗺 請在 Google Maps 點開任一地點，底部「加入願望清單」按鈕才會出現</div>
+  <div id="content">
+    <div id="maps-banner">
+      <div class="mb-title">📍 目前 Google Maps 地點</div>
+      <div class="mb-name" id="mb-name"></div>
+      <button class="mb-btn" id="mb-add-btn">＋ 加入願望清單</button>
+    </div>
+    <div id="pg-home"></div>
+    <div id="pg-wish" style="display:none"></div>
+    <div id="pg-timeline" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Bottom bar (timeline only) -->
+<div id="timeline-bar">
+  <button class="bar-btn nav" id="btn-nav-route">今日路線導航</button>
+  <button class="bar-btn exp" id="btn-open-export">匯出行程</button>
+</div>
+
+<!-- 願望清單多選工具列（靜態，常駐 DOM） -->
+<div id="wish-multi-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px;z-index:10">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+    <span id="wish-sel-label" style="font-size:12px;color:var(--text2)">已選 0 個地點</span>
+    <div style="display:flex;gap:6px">
+      <button class="add-btn" id="wish-sel-all" style="background:var(--surface2);color:var(--text);border:1px solid var(--border)">全選</button>
+      <button class="add-btn" id="wish-sel-clear" style="background:var(--surface2);color:var(--text);border:1px solid var(--border)">清除</button>
+      <button class="add-btn" id="wish-multi-sched-btn">加入行程</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+<!-- Undo Toast -->
+<div id="undo-toast" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:9px 14px 9px 18px;border-radius:20px;font-size:12px;font-weight:500;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;display:flex;align-items:center;gap:10px">
+  <span id="undo-toast-msg"></span>
+  <button id="undo-toast-btn" style="background:var(--accent-m);color:#fff;border:none;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0">復原</button>
+</div>
+
+<!-- Modal: 專案 -->
+<div class="mwrap" id="m-proj">
+  <div class="modal">
+    <div class="mtitle"><span id="mpt">新旅遊</span><button class="mclose" id="mc-proj">✕</button></div>
+    <div class="f"><label>專案名稱</label><input id="pi-name" placeholder="例：日本東北自駕 2025"></div>
+    <div class="f"><label>目的地</label><input id="pi-dest" placeholder="例：岩手、秋田、青森"></div>
+    <div class="f"><label>出發 ～ 結束日期</label>
+      <div class="frow"><input type="date" id="pi-s"><input type="date" id="pi-e"></div>
+    </div>
+    <div class="f"><label>主題顏色</label>
+      <div class="copts" id="copts">
+        <div class="copt sel" data-c="#2d6a4f" style="background:#2d6a4f"></div>
+        <div class="copt" data-c="#1a56a0" style="background:#1a56a0"></div>
+        <div class="copt" data-c="#7c3aed" style="background:#7c3aed"></div>
+        <div class="copt" data-c="#b5690a" style="background:#b5690a"></div>
+        <div class="copt" data-c="#c0392b" style="background:#c0392b"></div>
+        <div class="copt" data-c="#d4538b" style="background:#d4538b"></div>
+      </div>
+    </div>
+    <button class="bprimary" id="save-proj-btn">儲存專案</button>
+  </div>
+</div>
+
+<!-- Modal: 願望清單 -->
+<div class="mwrap" id="m-wish">
+  <div class="modal">
+    <div class="mtitle"><span id="mwt">新增地點</span><button class="mclose" id="mc-wish">✕</button></div>
+    <div class="f"><label>地點名稱</label><input id="wi-name" placeholder="例：猊鼻溪"></div>
+    <div class="f"><label>類別</label>
+      <select id="wi-cat"><option>景點</option><option>餐廳</option><option>購物</option><option>住宿</option><option>其他</option></select>
+    </div>
+    <div class="f"><label>預計停留時間</label>
+      <select id="wi-dur">
+        <option value="30">30 分鐘</option>
+        <option value="60" selected>1 小時</option>
+        <option value="90">1.5 小時</option>
+        <option value="120">2 小時</option>
+        <option value="180">3 小時</option>
+        <option value="240">3 小時以上</option>
+      </select>
+    </div>
+    <div class="f"><label>備註</label><textarea id="wi-note" placeholder="必做事項、開放時間、門票…"></textarea></div>
+    <div class="f"><label>Google Maps 連結</label>
+      <div style="display:flex;gap:6px;align-items:stretch">
+        <input id="wi-map" placeholder="https://maps.app.goo.gl/…" style="flex:1">
+        <a id="wi-map-search" href="#" target="_blank" title="在 Google Maps 搜尋地點名稱" class="map-search-btn">🔍</a>
+      </div>
+    </div>
+    <button class="bprimary" id="save-wish-btn">儲存地點</button>
+  </div>
+</div>
+
+<!-- Modal: 排入行程 -->
+<div class="mwrap" id="m-sched">
+  <div class="modal">
+    <div class="mtitle"><span>加入行程</span><button class="mclose" id="mc-sched">✕</button></div>
+    <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px" id="sc-spot-name"></div>
+    <div class="f"><label>選擇日期（可多選）</label><div class="day-checks" id="sc-days"></div></div>
+    <div class="day-slots" id="sc-slots"></div>
+    <button class="bprimary" id="save-sched-btn">加入行程</button>
+  </div>
+</div>
+
+<!-- Modal: 行程編輯 -->
+<div class="mwrap" id="m-trip">
+  <div class="modal">
+    <div class="mtitle"><span id="mtt">編輯行程</span><button class="mclose" id="mc-trip">✕</button></div>
+    <div class="f"><label>日期</label><select id="ti-date"></select></div>
+    <div class="f"><label>類別</label>
+      <select id="ti-cat"><option>景點</option><option>餐廳</option><option>購物</option><option>住宿</option><option>其他</option></select>
+    </div>
+    <div class="f"><label>時間（選填）</label><input type="time" id="ti-time"></div>
+    <div class="f"><label>停留時間</label>
+      <select id="ti-dur">
+        <option value="30">30 分鐘</option>
+        <option value="60">1 小時</option>
+        <option value="90">1.5 小時</option>
+        <option value="120">2 小時</option>
+        <option value="180">3 小時</option>
+        <option value="240">3 小時以上</option>
+      </select>
+    </div>
+    <div class="f"><label>備註</label><textarea id="ti-note" placeholder="備註…"></textarea></div>
+    <div class="f"><label>Google Maps 連結</label>
+      <div style="display:flex;gap:6px;align-items:stretch">
+        <input id="ti-map" placeholder="https://maps.app.goo.gl/…" style="flex:1">
+        <a id="ti-map-search" href="#" target="_blank" title="在 Google Maps 搜尋地點名稱" class="map-search-btn">🔍</a>
+      </div>
+    </div>
+    <button class="bprimary" id="save-trip-btn">儲存</button>
+  </div>
+</div>
+
+<!-- Modal: 路線導航交通方式 -->
+<div class="mwrap" id="m-route">
+  <div class="modal">
+    <div class="mtitle"><span>今日路線導航</span><button class="mclose" id="mc-route">✕</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px" id="route-info"></div>
+    <div class="f"><label>交通方式</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="travel-mode-btns">
+        <button class="travel-mode-btn active" data-mode="driving">開車</button>
+        <button class="travel-mode-btn" data-mode="transit" style="display:flex;align-items:center;justify-content:center;gap:4px">大眾運輸<span class="transit-tip" data-tip="多點行程將拆為分段連結，需逐段查看路線">!</span></button>
+        <button class="travel-mode-btn" data-mode="walking">步行</button>
+        <button class="travel-mode-btn" data-mode="bicycling">騎自行車</button>
+      </div>
+    </div>
+    <div id="transit-opts" style="display:none;margin-bottom:12px;background:var(--amber-l);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px">
+      <div style="font-size:12px;color:var(--amber);font-weight:600;margin-bottom:8px">大眾運輸不支援多點路線，請選擇：</div>
+      <div style="display:flex;flex-direction:column;gap:6px" id="transit-links"></div>
+    </div>
+    <div id="driving-opts" style="display:none;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.3px">選擇要納入的地點</div>
+      <div class="day-checks" id="driving-checks"></div>
+    </div>
+    <button class="bprimary" id="btn-open-route" style="margin-top:4px">開啟導航</button>
+  </div>
+</div>
+
+<!-- Modal: 匯出行程 -->
+<div class="mwrap" id="m-export">
+  <div class="modal">
+    <div class="mtitle"><span>匯出行程</span><button class="mclose" id="mc-export">✕</button></div>
+    <div class="f"><label>選擇要匯出的天（可多選）</label>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="add-btn" id="export-sel-all" style="font-size:11px;padding:4px 10px">全選</button>
+        <button class="add-btn" id="export-sel-none" style="font-size:11px;padding:4px 10px;background:var(--surface2);color:var(--text);border:1px solid var(--border)">清除</button>
+      </div>
+      <div class="export-day-checks" id="export-days"></div>
+    </div>
+    <div class="export-btns" style="grid-template-columns:1fr 1fr 1fr">
+      <button class="exp-btn csv" id="btn-export-csv">📊 Excel</button>
+      <button class="exp-btn copy" id="btn-copy-text">📋 複製文字</button>
+      <button class="exp-btn" id="btn-export-md" style="background:var(--blue-l);color:var(--blue)">⬇️ Markdown</button>
+    </div>
+    <div class="copy-result" id="copy-result"></div>
+  </div>
+</div>
+
+
+<!-- Modal: 行程衝突處理 -->
+<div class="mwrap" id="m-conflict">
+  <div class="modal">
+    <div class="mtitle"><span>行程日期衝突</span><button class="mclose" id="mc-conflict">✕</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">以下行程因日期調整而超出新範圍，請選擇搬移或刪除：</div>
+    <div id="conflict-list" style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto;margin-bottom:14px"></div>
+    <button class="bprimary" id="btn-conflict-confirm">確認並儲存</button>
+  </div>
+</div>
+
+<!-- Modal: 新手引導 -->
+<div class="mwrap" id="m-onboard" style="align-items:center;justify-content:center">
+  <div class="modal" style="border-radius:var(--rl);max-width:340px;margin:20px;padding:24px 20px 28px">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:40px;margin-bottom:10px">✈️</div>
+      <div style="font-size:17px;font-weight:600;margin-bottom:6px">歡迎使用旅程規劃</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.7">三步驟開始你的旅遊計畫</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px">
+      <div class="onboard-step">
+        <div class="onboard-num">1</div>
+        <div class="onboard-text">
+          <div class="onboard-title">重整 Google Maps 頁面</div>
+          <div class="onboard-desc">安裝後需重整一次，讓擴充功能正確載入</div>
+          <button id="btn-reload-maps" style="margin-top:7px;font-size:11px;padding:5px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:5px">🔄 立即重整（此面板不會關閉）</button>
+        </div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">2</div>
+        <div class="onboard-text">
+          <div class="onboard-title">新增旅遊專案</div>
+          <div class="onboard-desc">設定名稱、目的地和出發日期，可先做或重整後再做</div>
+        </div>
+      </div>
+      <div class="onboard-step">
+        <div class="onboard-num">3</div>
+        <div class="onboard-text">
+          <div class="onboard-title">點開任一地點，一鍵加入</div>
+          <div class="onboard-desc">在 Maps 搜尋後點進地點頁面，底部綠色按鈕才會出現（地圖首頁不會顯示）</div>
+        </div>
+      </div>
+    </div>
+    <button class="bprimary" id="btn-onboard-start" style="margin-top:0">建立第一個旅遊專案</button>
+    <button id="btn-onboard-skip" style="width:100%;background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:10px;padding:4px">略過，我已了解</button>
+  </div>
+</div>
+
+
+<!-- Modal: 批次匯入地點 -->
+<div class="mwrap" id="m-batch">
+  <div class="modal">
+    <div class="mtitle"><span>多地點匯入</span><button class="mclose" id="mc-batch">✕</button></div>
+
+    <!-- 貼上清單快速匯入 -->
+    <div style="background:var(--accent-l);border:1px solid var(--accent-m);border-radius:var(--r);padding:10px 12px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">⚡ 快速匯入：貼上地點清單</div>
+      <textarea id="batch-paste-area" placeholder="每行一個地點名稱，例如：&#10;金閣寺&#10;嵐山竹林&#10;伏見稻荷大社" style="width:100%;min-height:72px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:12px;color:var(--text);font-family:inherit;resize:vertical"></textarea>
+      <button id="btn-paste-import" style="margin-top:6px;width:100%;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:7px;font-size:12px;font-weight:600;cursor:pointer">建立列表</button>
+    </div>
+
+    <div style="font-size:11px;font-weight:500;color:var(--text3);text-align:center;margin-bottom:10px;letter-spacing:.3px">── 或手動填寫 ──</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5">名稱為必填，Maps 連結選填。點 🔍 可直接搜尋地點並複製網址。</div>
+    <div id="batch-rows" style="display:flex;flex-direction:column;gap:6px;max-height:38vh;overflow-y:auto;margin-bottom:10px"></div>
+    <button class="add-btn" id="btn-batch-add-row" style="width:100%;justify-content:center;background:var(--surface2);color:var(--text);border:1px solid var(--border);margin-bottom:10px">＋ 新增一行</button>
+    <button class="bprimary" id="btn-run-batch" style="margin-top:0">匯入地點</button>
+  </div>
+</div>
+
+
+<!-- Modal: 專案刪除確認 -->
+<div class="mwrap" id="m-del-proj">
+  <div class="modal">
+    <div class="mtitle"><span>刪除旅遊專案</span><button class="mclose" id="mc-del-proj">✕</button></div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:8px">即將刪除：</div>
+    <div id="del-proj-name" style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px"></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">此操作無法復原，該專案的所有願望清單與行程都將一併刪除。</div>
+    <div class="f"><label>請輸入專案名稱確認</label><input id="del-proj-confirm-input" placeholder="輸入專案名稱…"></div>
+    <button class="bprimary" id="btn-del-proj-confirm" style="background:var(--coral);margin-top:4px;opacity:.5;cursor:not-allowed" disabled>確認刪除</button>
+  </div>
+</div>
+
+<!-- Modal: 批次排入行程 -->
+<div class="mwrap" id="m-multi-sched">
+  <div class="modal">
+    <div class="mtitle"><span>加入行程</span><button class="mclose" id="mc-multi-sched">✕</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px">已選 <span id="multi-sel-count">0</span> 個地點，選擇要排入的天：</div>
+    <div class="f"><label>選擇日期</label>
+      <div class="day-checks" id="multi-sched-days"></div>
+    </div>
+
+    <button class="bprimary" id="btn-multi-sched-confirm">加入行程</button>
+  </div>
+</div>
+
+<script type="module">
+  import "./firebase-config.js";
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<script src="app.js"></script>
+</body>
+</html>

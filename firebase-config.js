@@ -1,0 +1,74 @@
+// Firebase 設定 — PWA 版本，使用官方 Web SDK（不受擴充功能 CSP 限制，可以用 CDN）
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getDatabase, ref, get, set
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBj0BAvik2icCn32O8uvEQd66F78QcZ43Y",
+  authDomain: "trip-planner-d94a9.firebaseapp.com",
+  databaseURL: "https://trip-planner-d94a9-default-rtdb.firebaseio.com",
+  projectId: "trip-planner-d94a9",
+  storageBucket: "trip-planner-d94a9.firebasestorage.app",
+  messagingSenderId: "972652807406",
+  appId: "1:972652807406:web:c3a8d98c656de58dc31fff"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db_ = getDatabase(app);
+
+// 與擴充功能版本相同的函式介面，讓 app.js 不需要改呼叫方式
+window.signInWithGoogle = async function() {
+  const provider = new GoogleAuthProvider();
+  const result = await signInWithPopup(auth, provider);
+  return { uid: result.user.uid, email: result.user.email };
+};
+
+window.signOut = async function() {
+  await fbSignOut(auth);
+};
+
+window.getCurrentUser = function() {
+  return auth.currentUser ? { uid: auth.currentUser.uid } : null;
+};
+
+window.restoreAuth = async function() {
+  // PWA 版本用 onAuthStateChanged 自動恢復，這裡只是等待初始化完成
+  return new Promise((resolve) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      unsub();
+      resolve(user ? { uid: user.uid, email: user.email } : null);
+    });
+  });
+};
+
+window.fbRead = async function() {
+  const user = auth.currentUser;
+  if (!user) return null;
+  const snap = await get(ref(db_, `users/${user.uid}/tripdb`));
+  return snap.exists() ? snap.val() : null;
+};
+
+window.fbWrite = async function(data) {
+  const user = auth.currentUser;
+  if (!user) return false;
+  try {
+    await set(ref(db_, `users/${user.uid}/tripdb`), data);
+    return true;
+  } catch(e) {
+    console.warn('Firebase 寫入失敗', e);
+    return false;
+  }
+};
+
+// PWA 不需要換帳號的特殊處理（瀏覽器原生會跳帳號選擇視窗）
+window.forceAccountSwitch = async function() { return true; };
+
+// 監聽登入狀態變化，自動更新畫面（取代擴充功能版本的 onclick 內手動呼叫）
+onAuthStateChanged(auth, (user) => {
+  if (window.onAuthChange) window.onAuthChange(user);
+});

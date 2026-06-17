@@ -1,0 +1,16 @@
+{
+  "name": "旅程規劃 — 行程與記帳",
+  "short_name": "旅程規劃",
+  "description": "在電腦規劃行程，手機隨身查看與編輯",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#2d6a4f",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "icons/icon128.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon128.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
