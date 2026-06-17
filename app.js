@@ -116,7 +116,7 @@ let multiSchedIds = [];
 let undoState     = null;  // { type:'wish'|'trip', data, ap }
 let undoTimer     = null;
 let delProjTarget = null;  // 待刪除的專案 id
-let wishFilter    = { cat: 'all', sort: 'rating', query: '' };
+let wishFilter    = { cat: 'all', sortField: 'rating', sortDir: 'desc', query: '' };
 
 // =============================================================
 //  Utilities
@@ -508,12 +508,14 @@ function renderWish() {
     ${allCats.map(c => `<button class="filter-chip ${wishFilter.cat === c ? 'active' : ''}" data-filter-cat="${esc(c)}">${esc(c)}</button>`).join('')}
     <button class="filter-chip ${wishFilter.cat === 'unscheduled' ? 'active' : ''}" data-filter-cat="unscheduled">未排入</button>
     <div style="flex:1"></div>
-    <select id="wish-sort" style="font-size:11px;padding:3px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer">
-      <option value="rating" ${wishFilter.sort==='rating'?'selected':''}>按評分</option>
-      <option value="newest" ${wishFilter.sort==='newest'?'selected':''}>最新加入</option>
-      <option value="name"   ${wishFilter.sort==='name'  ?'selected':''}>名稱排序</option>
-      <option value="unscheduled" ${wishFilter.sort==='unscheduled'?'selected':''}>未排入優先</option>
-    </select>
+    <div style="display:flex;align-items:center;gap:4px">
+      <select id="wish-sort" style="font-size:11px;padding:3px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer">
+        <option value="rating"    ${wishFilter.sortField==='rating'   ?'selected':''}>依評分</option>
+        <option value="name"      ${wishFilter.sortField==='name'     ?'selected':''}>依名稱</option>
+        <option value="createdAt" ${wishFilter.sortField==='createdAt'?'selected':''}>依加入時間</option>
+      </select>
+      <button id="wish-sort-dir" title="切換排序方向" style="font-size:12px;width:26px;height:26px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center">${wishFilter.sortDir==='desc'?'↓':'↑'}</button>
+    </div>
   </div>`;
 
   if (!wishes.length) {
@@ -534,19 +536,14 @@ function renderWish() {
     filtered = filtered.filter(w => w.category === wishFilter.cat);
   }
 
-  // 排序
-  if (wishFilter.sort === 'rating') {
-    filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  } else if (wishFilter.sort === 'newest') {
-    filtered.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  } else if (wishFilter.sort === 'name') {
-    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-TW'));
-  } else if (wishFilter.sort === 'unscheduled') {
-    filtered.sort((a, b) => {
-      const aS = (db.trips[ap] || []).some(t => t.wishId === a.id) ? 1 : 0;
-      const bS = (db.trips[ap] || []).some(t => t.wishId === b.id) ? 1 : 0;
-      return aS - bS || (b.rating || 0) - (a.rating || 0);
-    });
+  // 排序：依據(sortField)決定比較的欄位，方向(sortDir)決定 asc/desc
+  const dirMul = wishFilter.sortDir === 'asc' ? 1 : -1;
+  if (wishFilter.sortField === 'rating') {
+    filtered.sort((a, b) => dirMul * ((a.rating || 0) - (b.rating || 0)));
+  } else if (wishFilter.sortField === 'createdAt') {
+    filtered.sort((a, b) => dirMul * ((a.createdAt || 0) - (b.createdAt || 0)));
+  } else if (wishFilter.sortField === 'name') {
+    filtered.sort((a, b) => dirMul * (a.name || '').localeCompare(b.name || '', 'zh-TW'));
   }
 
   if (!filtered.length) {
@@ -630,9 +627,14 @@ function bindWishControls(el) {
     wishFilter.cat = btn.dataset.filterCat;
     renderWish();
   }));
-  // 排序
+  // 排序：依據選單 + 方向切換按鈕
   const sortSel = $('wish-sort');
-  if (sortSel) sortSel.addEventListener('change', () => { wishFilter.sort = sortSel.value; renderWish(); });
+  if (sortSel) sortSel.addEventListener('change', () => { wishFilter.sortField = sortSel.value; renderWish(); });
+  const sortDirBtn = $('wish-sort-dir');
+  if (sortDirBtn) sortDirBtn.addEventListener('click', () => {
+    wishFilter.sortDir = wishFilter.sortDir === 'asc' ? 'desc' : 'asc';
+    renderWish();
+  });
 
   el.querySelectorAll('[data-edit-wish]').forEach(b => b.addEventListener('click', () => editWish(b.dataset.editWish)));
   el.querySelectorAll('[data-del-wish]').forEach(b  => b.addEventListener('click', () => delWish(b.dataset.delWish)));
@@ -1201,7 +1203,7 @@ function toggleDD() { const d = $('dd'), b = $('proj-btn'); const o = d.classLis
 function closeDD()  { $('dd').classList.remove('open'); $('proj-btn').classList.remove('open'); }
 function selProj(id) {
   ap = id; currentDayIdx = 0;
-  wishFilter = { cat: 'all', sort: 'rating', query: '' };
+  wishFilter = { cat: 'all', sortField: 'rating', sortDir: 'desc', query: '' };
   closeDD(); renderAll(); showTab('home');
   chrome.storage.local.set({ activeProject: id });
 }
