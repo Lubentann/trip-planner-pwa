@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v3'; // 因為這次又改了快取清單，版本號需要往上加才會生效
+const CACHE_NAME = 'trip-planner-v5'; // 加強內嵌瀏覽器提醒文字與加入主畫面教學，版本號往上加
 const ASSETS = [
   './',
   './index.html',
