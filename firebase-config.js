@@ -57,6 +57,7 @@ window.restoreAuth = async function() {
     }
   } catch(e) {
     console.warn('redirect 登入結果處理失敗', e);
+    window.lastAuthError = (e.message || e.code || String(e));
   }
   // PWA 版本用 onAuthStateChanged 自動恢復，這裡只是等待初始化完成
   return new Promise((resolve) => {
