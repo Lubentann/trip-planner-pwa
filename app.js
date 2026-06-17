@@ -1929,3 +1929,15 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(e => console.warn('Service Worker 註冊失敗', e));
   });
 }
+
+// ── 處理 signInWithRedirect 跳轉回來時的 back-forward cache 還原問題 ──
+// 行動裝置走 redirect 登入流程：點擊按鈕→頁面跳轉→Google 登入→跳回本站。
+// 某些瀏覽器（尤其 iOS Safari）會用 back-forward cache 還原跳轉前那一刻的畫面，
+// 導致按鈕文字停留在「登入中…」。pageshow 事件搭配 event.persisted 可偵測這種還原，
+// 強制重新跑一次 loadDB() 來修正畫面狀態。
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    console.log('[pageshow] 偵測到頁面從快取還原，重新整理登入狀態');
+    loadDB();
+  }
+});
