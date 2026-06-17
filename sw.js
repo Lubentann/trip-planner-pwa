@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v7'; // 排序改成依據+方向分離設計，版本號往上加
+const CACHE_NAME = 'trip-planner-v8'; // 修正日期框間距改用 flexbox，版本號往上加
 const ASSETS = [
   './',
   './index.html',
