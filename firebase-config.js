@@ -29,15 +29,13 @@ function isMobile() {
 }
 
 // 與擴充功能版本相同的函式介面，讓 app.js 不需要改呼叫方式
+// 注意：signInWithRedirect 在 authDomain 與實際網站網域不同時，
+// 會依賴跨網域 iframe 存取第三方儲存空間，這在 iOS Safari 16.1+ 等瀏覽器會被封鎖而完全失效。
+// signInWithPopup 不依賴這個機制，相容性更好，所以兩種裝置都優先使用 popup。
 window.signInWithGoogle = async function() {
   const provider = new GoogleAuthProvider();
-  if (isMobile()) {
-    await signInWithRedirect(auth, provider);
-    return null; // 頁面會跳轉，這裡不會真正執行到
-  } else {
-    const result = await signInWithPopup(auth, provider);
-    return { uid: result.user.uid, email: result.user.email };
-  }
+  const result = await signInWithPopup(auth, provider);
+  return { uid: result.user.uid, email: result.user.email };
 };
 
 window.signOut = async function() {
