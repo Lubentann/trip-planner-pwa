@@ -194,8 +194,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .onboard-text{flex:1}
 .onboard-title{font-size:13px;font-weight:500;margin-bottom:2px}
 .onboard-desc{font-size:11px;color:var(--text3);line-height:1.5}
-#refresh-reminder{background:var(--blue-l);border-bottom:1px solid var(--blue);padding:8px 14px;font-size:11px;color:var(--blue);font-weight:500;display:none;line-height:1.5;flex-shrink:0;word-break:keep-all}
-#refresh-reminder.show{display:block}
+
 #first-run-tip{background:var(--accent-l);border-top:1px solid var(--accent-m);padding:10px 14px;font-size:12px;color:var(--accent);font-weight:500;cursor:pointer;display:none;text-align:center;flex-shrink:0}
 #first-run-tip.show{display:block}
 
@@ -345,7 +344,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button id="new-btn" title="新旅遊專案">+</button>
     </div>
     <div id="auth-bar" style="display:flex;align-items:center;justify-content:space-between;padding:5px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:12px;flex-shrink:0">
-      <span id="auth-info" style="color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px">未登入（僅本機儲存）</span>
+      <span id="auth-info" style="color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px"></span>
       <button id="auth-btn" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap">Google 登入同步</button>
     </div>
     <div id="dd"></div>
@@ -356,7 +355,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
   <div id="first-run-tip">👆 點右上角 + 新增你的第一個旅遊專案</div>
-  <div id="refresh-reminder">🗺 請在 Google Maps 點開任一地點，底部「加入願望清單」按鈕才會出現</div>
   <div id="content">
     <div id="maps-banner">
       <div class="mb-title">📍 目前 Google Maps 地點</div>
@@ -550,29 +548,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:40px;margin-bottom:10px">✈️</div>
       <div style="font-size:17px;font-weight:600;margin-bottom:6px">歡迎使用旅程規劃</div>
-      <div style="font-size:12px;color:var(--text3);line-height:1.7">三步驟開始你的旅遊計畫</div>
+      <div style="font-size:12px;color:var(--text3);line-height:1.7">兩步驟開始你的旅遊計畫</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px">
       <div class="onboard-step">
         <div class="onboard-num">1</div>
         <div class="onboard-text">
-          <div class="onboard-title">重整 Google Maps 頁面</div>
-          <div class="onboard-desc">安裝後需重整一次，讓擴充功能正確載入</div>
-          <button id="btn-reload-maps" style="margin-top:7px;font-size:11px;padding:5px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:5px">🔄 立即重整（此面板不會關閉）</button>
+          <div class="onboard-title">新增旅遊專案</div>
+          <div class="onboard-desc">設定名稱、目的地和出發日期</div>
         </div>
       </div>
       <div class="onboard-step">
         <div class="onboard-num">2</div>
         <div class="onboard-text">
-          <div class="onboard-title">新增旅遊專案</div>
-          <div class="onboard-desc">設定名稱、目的地和出發日期，可先做或重整後再做</div>
-        </div>
-      </div>
-      <div class="onboard-step">
-        <div class="onboard-num">3</div>
-        <div class="onboard-text">
-          <div class="onboard-title">點開任一地點，一鍵加入</div>
-          <div class="onboard-desc">在 Maps 搜尋後點進地點頁面，底部綠色按鈕才會出現（地圖首頁不會顯示）</div>
+          <div class="onboard-title">加入想去的景點</div>
+          <div class="onboard-desc">在願望清單裡新增地點，再排進每天的行程</div>
         </div>
       </div>
     </div>
