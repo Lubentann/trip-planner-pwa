@@ -33,7 +33,7 @@ window.signOut = async function() {
 };
 
 window.getCurrentUser = function() {
-  return auth.currentUser ? { uid: auth.currentUser.uid } : null;
+  return auth.currentUser ? { uid: auth.currentUser.uid, email: auth.currentUser.email } : null;
 };
 
 window.restoreAuth = async function() {
