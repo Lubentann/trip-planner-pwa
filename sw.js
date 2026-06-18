@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v14'; // 用 requestAnimationFrame 確保滾動位置還原時機正確，版本號往上加
+const CACHE_NAME = 'trip-planner-v15'; // 輸入框字體調整為16px避免iOS自動放大，版本號往上加
 const ASSETS = [
   './',
   './index.html',
