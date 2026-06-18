@@ -1,2 +1,2 @@
-###link: https://lubentann.github.io/trip-planner-pwa/ 
+link: https://lubentann.github.io/trip-planner-pwa/ 
 ###
