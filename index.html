@@ -39,7 +39,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #proj-btn span.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
 #proj-btn .ch{color:var(--text3);font-size:11px;flex-shrink:0;transition:transform .18s}
 #proj-btn.open .ch{transform:rotate(180deg)}
-#new-btn{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 #dd{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:6px;display:none;max-height:220px;overflow-y:auto}
 #dd.open{display:block}
 .pi{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border)}
@@ -50,6 +49,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .pinfo{flex:1;min-width:0}
 .pinfo .pn{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pinfo .pm{font-size:11px;color:var(--text3)}
+.pi-add{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;color:var(--accent);font-weight:600;font-size:13px}
+.pi-add:hover{background:var(--surface2)}
+.pi-add-icon{width:16px;text-align:center;font-size:15px;line-height:1;flex-shrink:0}
 .pedit{width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:5px;font-size:12px;flex-shrink:0}
 .pedit:hover{background:var(--accent-l);color:var(--accent)}
 .pdel{width:24px;height:24px;border:none;background:none;cursor:pointer;color:var(--text3);border-radius:5px;font-size:12px;flex-shrink:0}
@@ -162,6 +164,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .f{margin-bottom:11px}
 .f label{display:block;font-size:10px;font-weight:500;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px}
 .f input,.f textarea,.f select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:9px 11px;font-size:16px;color:var(--text);font-family:inherit;transition:border .14s;resize:vertical}
+input[type="date"]{position:relative;cursor:pointer}
+input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;left:0;right:0;bottom:0;width:auto;height:auto;color:transparent;background:transparent;cursor:pointer}
 .f input:focus,.f textarea:focus,.f select:focus{outline:none;border-color:var(--accent-m)}
 .f textarea{min-height:60px}
 .frow{display:flex;gap:16px;flex-wrap:wrap}
@@ -242,10 +246,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #wish-search-row{display:flex;gap:6px;align-items:center;margin:10px 0 10px}
 #wish-search{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:13px;color:var(--text);font-family:inherit}
 #wish-search:focus{outline:none;border-color:var(--accent-m)}
-.filter-chip{padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:500;color:var(--text2);cursor:pointer;white-space:nowrap;transition:all .12s}
+.filter-chip{padding:0 10px;height:26px;display:inline-flex;align-items:center;border-radius:20px;border:1px solid var(--border);background:var(--surface2);font-size:11px;font-weight:500;color:var(--text2);cursor:pointer;white-space:nowrap;transition:all .12s;box-sizing:border-box}
 .filter-chip.active{background:var(--accent-l);color:var(--accent);border-color:var(--accent-m)}
 #wish-filter-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-#wish-filter-bar{display:flex;gap:5px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;flex:1;min-width:0}
+#wish-filter-bar{display:flex;align-items:center;gap:5px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;flex:1;min-width:0;-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent 100%);mask-image:linear-gradient(to right,#000 calc(100% - 20px),transparent 100%)}
 #wish-filter-bar::-webkit-scrollbar{display:none}
 #wish-sort-row{display:flex;align-items:center;gap:4px;flex-shrink:0}
 
@@ -320,6 +324,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .conflict-del-btn.active{background:var(--coral);color:#fff}
 .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:8px 18px;border-radius:20px;font-size:12px;font-weight:500;z-index:200;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
+/* ── 準備清單 ────────────────────────────────────────────────────── */
+.cl-hdr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.cl-hdr-title{font-size:12px;font-weight:600;color:var(--text)}
+.cl-hdr-prog{font-size:11px;color:var(--text3);font-variant-numeric:tabular-nums}
+.cl-prog-track{height:3px;background:var(--surface2);border-radius:2px;margin-bottom:6px;overflow:hidden;border:1px solid var(--border)}
+.cl-prog-fill{height:100%;border-radius:2px;background:var(--accent);transition:width .3s}
+.cl-cat{font-size:9px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);margin-top:6px;margin-bottom:1px}
+.cl-group{display:flex;flex-direction:column}
+.cl-item{margin-bottom:4px;transition:opacity .15s}
+.cl-dragging{opacity:.4}
+.cl-drag-over{outline:2px dashed var(--accent);border-radius:4px;outline-offset:1px}
+.cl-placeholder{background:var(--accent-l);border:2px dashed var(--accent-m);border-radius:4px;margin-bottom:4px;pointer-events:none}
+.cl-done .cl-name{text-decoration:line-through;color:var(--text3)}
+.cl-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.drag-handle{cursor:grab;flex-shrink:0;padding:2px;display:flex;align-items:center;color:var(--text3);touch-action:none}
+.drag-handle:active{cursor:grabbing}
+.cl-lbl{display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer}
+.cl-chk{width:14px;height:14px;appearance:none;-webkit-appearance:none;border:1.5px solid var(--border2);border-radius:3px;background:var(--surface2);cursor:pointer;flex-shrink:0;position:relative;transition:all .12s}
+.cl-chk:checked{background:var(--accent);border-color:var(--accent)}
+.cl-chk:checked::after{content:'✓';position:absolute;top:50%;left:50%;transform:translate(-50%,-53%);color:#fff;font-size:9px;font-weight:800;line-height:1}
+.cl-name{font-size:12px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-acts{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.affiliate-btn{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:12px;background:var(--accent-l);color:var(--accent);text-decoration:none;font-size:11px;font-weight:600;border:1px solid var(--accent-m);white-space:nowrap;transition:background .12s;flex-shrink:0}
+.affiliate-btn:hover{background:var(--accent);color:#fff}
+.cl-note-btn{color:var(--text3)}
+.cl-note-preview{font-size:10px;color:var(--text3);padding:1px 0 1px 24px;white-space:pre-wrap;word-break:break-all;line-height:1.4}
+.cl-note-wrap{padding:3px 0 4px 24px;display:flex;flex-direction:column;gap:3px}
+.cl-ta{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 7px;font-size:12px;color:var(--text);font-family:inherit;resize:vertical;min-height:42px;box-sizing:border-box}
+.cl-ta:focus{outline:none;border-color:var(--accent)}
+.cl-save-note{align-self:flex-end;background:var(--accent);color:#fff;border:none;border-radius:5px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer}
+.cl-add-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);width:100%}
+.cl-add-row select,.cl-add-row input,.cl-add-row button{height:32px;box-sizing:border-box;margin:0}
+.cl-cat-sel{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0 4px;font-size:11px;color:var(--text);font-family:inherit;flex-shrink:0;width:52px}
+.cl-new-inp{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0 8px;font-size:12px;color:var(--text);font-family:inherit}
+.cl-new-inp:focus{outline:none;border-color:var(--accent)}
+.cl-add-btn{width:32px;padding:0;display:flex;justify-content:center;align-items:center;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -341,17 +381,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span class="ch">▾</span>
       </button>
       <div id="auth-avatar" title="" style="width:24px;height:24px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;position:relative"></div>
-      <button id="new-btn" title="新旅遊專案">+</button>
     </div>
     <div id="auth-menu" style="display:none;position:absolute;right:14px;top:42px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:50;min-width:180px">
       <div id="auth-info" style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px"></div>
       <button id="auth-btn" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Google 登入同步</button>
+      <button id="btn-open-invite" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2);cursor:pointer;margin-top:6px">🔗 Invite Partner</button>
+      <button id="btn-open-join" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2);cursor:pointer;margin-top:4px">🤝 Join a Project</button>
     </div>
     <div id="dd"></div>
     <div id="tabs">
       <button class="tb" id="tb-home">首頁</button>
-      <button class="tb" id="tb-wish">願望清單</button>
-      <button class="tb" id="tb-timeline">行程</button>
+      <button class="tb" id="tb-wish">地點清單</button>
+      <button class="tb" id="tb-timeline">行程安排</button>
     </div>
   </div>
   <div id="first-run-tip">👆 點右上角 + 新增你的第一個旅遊專案</div>
@@ -359,7 +400,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="maps-banner">
       <div class="mb-title">📍 目前 Google Maps 地點</div>
       <div class="mb-name" id="mb-name"></div>
-      <button class="mb-btn" id="mb-add-btn">＋ 加入願望清單</button>
+      <button class="mb-btn" id="mb-add-btn">＋ 加入地點清單</button>
     </div>
     <div id="pg-home"></div>
     <div id="pg-wish" style="display:none"></div>
@@ -558,14 +599,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="onboard-num">1</div>
         <div class="onboard-text">
           <div class="onboard-title">新增旅遊專案</div>
-          <div class="onboard-desc">設定名稱、目的地和出發日期</div>
+          <div class="onboard-desc">點上方專案名稱旁的下拉選單，選「新增旅遊專案」，填入名稱與日期</div>
         </div>
       </div>
       <div class="onboard-step">
         <div class="onboard-num">2</div>
         <div class="onboard-text">
-          <div class="onboard-title">加入想去的景點</div>
-          <div class="onboard-desc">在願望清單裡新增地點，再排進每天的行程</div>
+          <div class="onboard-title">收藏地點，再排入行程</div>
+          <div class="onboard-desc">在地點清單新增想去的地點，打好評分跟備註，準備好了再一起排進每天的行程順序</div>
         </div>
       </div>
     </div>
@@ -602,7 +643,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="mtitle"><span>刪除旅遊專案</span><button class="mclose" id="mc-del-proj">✕</button></div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:8px">即將刪除：</div>
     <div id="del-proj-name" style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px"></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">此操作無法復原，該專案的所有願望清單與行程都將一併刪除。</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">此操作無法復原，該專案的所有地點清單與行程安排都將一併刪除。</div>
     <div class="f"><label>請輸入專案名稱確認</label><input id="del-proj-confirm-input" placeholder="輸入專案名稱…"></div>
     <button class="bprimary" id="btn-del-proj-confirm" style="background:var(--coral);margin-top:4px;opacity:.5;cursor:not-allowed" disabled>確認刪除</button>
   </div>
@@ -618,6 +659,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
 
     <button class="bprimary" id="btn-multi-sched-confirm">加入行程</button>
+  </div>
+</div>
+
+<!-- Modal: Invite Partner (Owner flow) -->
+<div class="mwrap" id="m-invite">
+  <div class="modal">
+    <div class="mtitle"><span>Invite Partner</span><button class="mclose" id="mc-invite">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Share this code with your travel partner. It expires in <strong>24 hours</strong>.</div>
+    <div class="f"><label>Project</label>
+      <div id="invite-proj-name" style="font-size:13px;font-weight:500;color:var(--text);padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)">—</div>
+    </div>
+    <div class="f"><label>Invite Code</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <div id="invite-code-display" style="flex:1;font-size:22px;font-weight:700;letter-spacing:4px;text-align:center;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--accent);font-family:monospace">——————</div>
+        <button id="btn-copy-invite" style="flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:12px 14px;font-size:12px;font-weight:600;cursor:pointer">Copy</button>
+      </div>
+    </div>
+    <div id="invite-status" style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px;min-height:16px"></div>
+    <button class="bprimary" id="btn-gen-invite" style="margin-top:8px">Generate New Code</button>
+  </div>
+</div>
+
+<!-- Modal: Join Project (Guest flow) -->
+<div class="mwrap" id="m-join">
+  <div class="modal">
+    <div class="mtitle"><span>Join a Project</span><button class="mclose" id="mc-join">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Ask your travel partner to share their invite code, then enter it below.</div>
+    <div class="f"><label>Invite Code</label>
+      <input id="join-code-input" placeholder="e.g. AB12CD" style="text-transform:uppercase;letter-spacing:3px;font-size:16px;font-weight:600;font-family:monospace;text-align:center" maxlength="6">
+    </div>
+    <div id="join-status" style="font-size:12px;min-height:18px;margin-bottom:8px;text-align:center"></div>
+    <button class="bprimary" id="btn-join-confirm">Join Project</button>
   </div>
 </div>
 
