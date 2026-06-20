@@ -98,6 +98,25 @@ const CC    = { 景點:'t-teal', 交通:'t-amber', 住宿:'t-blue', 餐廳:'t-co
 const DUR   = { 30:'30分', 60:'1小時', 90:'1.5小時', 120:'2小時', 180:'3小時', 240:'3小時+' };
 const WKDAY = ['日','一','二','三','四','五','六'];
 
+// ── 準備清單常數 ──────────────────────────────────────────────────────────────
+const CL_CATS = ['交通','住宿','網路','票券','個人','其他'];
+
+const DEFAULT_TASKS = {
+  'def_flight':  { name:'預訂來回機票',             category:'交通', isCustom:false, isChecked:false, note:'', link:'https://tw.trip.com/',    order:1000, createdAt:1 },
+  'def_hotel':   { name:'確認住宿預訂',             category:'住宿', isCustom:false, isChecked:false, note:'', link:'https://www.agoda.com/',  order:2000, createdAt:2 },
+  'def_esim':    { name:'購買網卡 / eSIM',          category:'網路', isCustom:false, isChecked:false, note:'', link:'https://www.kkday.com/',  order:3000, createdAt:3 },
+  'def_tickets': { name:'購買當地交通票券或行程',     category:'票券', isCustom:false, isChecked:false, note:'', link:'https://www.klook.com/', order:4000, createdAt:4 },
+};
+
+function buildDefaultChecklistPayload() {
+  return JSON.parse(JSON.stringify(DEFAULT_TASKS));
+}
+
+// Checklist state
+let _clCache = {};   // { [projectId]: { [taskId]: taskObj } }
+let _clLock  = {};   // { [taskId]: true }  debounce guard
+
+
 // =============================================================
 //  State
 // =============================================================
@@ -217,7 +236,7 @@ function sortedDayTrips(dateStr) {
  */
 function buildStarsHtml(containerClass, starClass, wishId, rating) {
   const stars = [1, 2, 3, 4, 5].map(i =>
-    `<span class="${starClass}" data-val="${i}" style="font-size:14px;color:${i <= rating ? '#f59e0b' : 'var(--border2)'}">★</span>`
+    `<span class="${starClass}" data-val="${i}" style="font-size:14px;color:${i <= rating ? 'var(--coral)' : 'var(--border2)'}">♥</span>`
   ).join('');
   return `<div class="${containerClass}" data-wish-id="${wishId}" data-rating="${rating}" style="display:inline-flex;gap:2px;cursor:pointer;align-items:center">${stars}</div>`;
 }
@@ -234,13 +253,13 @@ function bindStars(container, starClass, onRate) {
     star.addEventListener('mouseenter', () => {
       const v = Number(star.dataset.val);
       container.querySelectorAll(`.${starClass}`).forEach(s =>
-        s.style.color = Number(s.dataset.val) <= v ? '#f59e0b' : 'var(--border2)'
+        s.style.color = Number(s.dataset.val) <= v ? 'var(--coral)' : 'var(--border2)'
       );
     });
     star.addEventListener('mouseleave', () => {
       const cur = Number(container.dataset.rating);
       container.querySelectorAll(`.${starClass}`).forEach(s =>
-        s.style.color = Number(s.dataset.val) <= cur ? '#f59e0b' : 'var(--border2)'
+        s.style.color = Number(s.dataset.val) <= cur ? 'var(--coral)' : 'var(--border2)'
       );
     });
     star.addEventListener('click', async e => {
@@ -248,7 +267,7 @@ function bindStars(container, starClass, onRate) {
       const v = Number(star.dataset.val);
       container.dataset.rating = v;
       container.querySelectorAll(`.${starClass}`).forEach(s =>
-        s.style.color = Number(s.dataset.val) <= v ? '#f59e0b' : 'var(--border2)'
+        s.style.color = Number(s.dataset.val) <= v ? 'var(--coral)' : 'var(--border2)'
       );
       await onRate(wishId, v);
     });
@@ -298,6 +317,302 @@ async function loadDB() {
   const openCount = (r.openCount || 0) + 1;
   chrome.storage.local.set({ openCount });
 }
+
+// ── 準備清單共用渲染邏輯 ──────────────────────────────────────────────────────
+async function clLoad(pid, container) {
+  if (!container) return;
+
+  const cached = _clCache[pid];
+  const cacheValid = cached && typeof cached === 'object' && Object.keys(cached).length > 0
+    && Object.values(cached).every(t => t && typeof t.name === 'string');
+
+  if (!cacheValid) {
+    let data = null;
+    try { data = await window.clApiRead(pid); } catch(e) {}
+
+    const remoteValid = data && typeof data === 'object' && Object.keys(data).length > 0
+      && Object.values(data).every(t => t && typeof t.name === 'string');
+
+    if (!remoteValid) {
+      data = buildDefaultChecklistPayload();
+      window.clApiPut(pid, data).catch(e => console.warn('clLoad PUT failed', e));
+    }
+    _clCache[pid] = data;
+  }
+  clRender(pid, container);
+}
+
+function clUpdateProgress(pid) {
+  const tasks = Object.values(_clCache[pid] || {});
+  const total = tasks.length, done = tasks.filter(t => t.isChecked).length;
+  const lbl = document.getElementById('cl-prog-label');
+  const fill = document.getElementById('cl-prog-fill');
+  if (lbl) lbl.textContent = `${done}/${total}`;
+  if (fill) fill.style.width = total ? `${Math.round(done/total*100)}%` : '0%';
+}
+
+function clRender(pid, container) {
+  clUpdateProgress(pid);
+  const tasks = _clCache[pid] || {};
+
+  const groups = {};
+  CL_CATS.forEach(c => { groups[c] = []; });
+  Object.entries(tasks).forEach(([id, t]) => {
+    if (!t || typeof t.name !== 'string') return;
+    const cat = t.category || '其他';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push({id, ...t});
+  });
+  // Sort each group by order (ascending), fallback to createdAt
+  Object.keys(groups).forEach(c => groups[c].sort((a,b) => (a.order??a.createdAt??0)-(b.order??b.createdAt??0)));
+
+  let html = '';
+  CL_CATS.forEach(cat => {
+    const items = groups[cat];
+    if (!items || !items.length) return;
+    html += `<div class="cl-cat">${esc(cat)}</div>`;
+    // Each category gets its own droppable list container
+    html += `<div class="cl-group" data-cat="${esc(cat)}">`;
+    items.forEach(item => {
+      let actionHtml = '';
+      if (item.link) {
+        actionHtml += `<a class="affiliate-btn" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer">前往 ↗</a>`;
+      }
+      actionHtml += `<button class="ib cl-note-btn" data-cid="${esc(item.id)}" title="備註"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+      if (item.isCustom) {
+        actionHtml += `<button class="ib del cl-del" data-cid="${esc(item.id)}" title="刪除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`;
+      }
+      const notePreview = item.note ? `<div class="cl-note-preview">${esc(item.note)}</div>` : '';
+      html += `
+        <div class="cl-item${item.isChecked?' cl-done':''}" data-cid="${esc(item.id)}" draggable="true">
+          <div class="cl-row">
+            <span class="drag-handle" title="拖曳排序"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity:.45"><circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+            <label class="cl-lbl">
+              <input type="checkbox" class="cl-chk" data-cid="${esc(item.id)}"${item.isChecked?' checked':''}>
+              <span class="cl-name">${esc(item.name)}</span>
+            </label>
+            <div class="cl-acts">${actionHtml}</div>
+          </div>
+          ${notePreview}
+          <div class="cl-note-wrap" id="cl-nw-${esc(item.id)}" style="display:none">
+            <textarea class="cl-ta" data-cid="${esc(item.id)}" placeholder="備註…" rows="2">${esc(item.note||'')}</textarea>
+            <button class="cl-save-note" data-cid="${esc(item.id)}">儲存</button>
+          </div>
+        </div>`;
+    });
+    html += `</div>`; // end .cl-group
+  });
+
+  const catOpts = CL_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
+  html += `<div class="cl-add-row">
+    <select class="cl-cat-sel" id="cl-cat-sel">${catOpts}</select>
+    <input type="text" class="cl-new-inp" id="cl-new-inp" placeholder="新增項目…" maxlength="50">
+    <button class="cl-add-btn" id="cl-add-btn">+</button>
+  </div>`;
+
+  container.innerHTML = html;
+  clBind(pid, container);
+}
+
+
+
+function clBind(pid, container) {
+  // ── checkbox toggle ───────────────────────────────────────────────────────
+  container.querySelectorAll('.cl-chk').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const cid = cb.dataset.cid;
+      if (_clLock[cid]) { cb.checked = !cb.checked; return; }
+      _clLock[cid] = true;
+      const newVal = cb.checked;
+      const row = container.querySelector(`.cl-item[data-cid="${cid}"]`);
+      if (row) row.classList.toggle('cl-done', newVal);
+      if (_clCache[pid][cid]) _clCache[pid][cid].isChecked = newVal;
+      clUpdateProgress(pid);
+      const ok = await window.clApiPatch(pid, { [`${cid}/isChecked`]: newVal });
+      if (!ok) {
+        cb.checked = !newVal;
+        if (row) row.classList.toggle('cl-done', !newVal);
+        if (_clCache[pid][cid]) _clCache[pid][cid].isChecked = !newVal;
+        clUpdateProgress(pid);
+        showToast('⚠️ 更新失敗');
+      }
+      delete _clLock[cid];
+    });
+  });
+
+  // ── note toggle ───────────────────────────────────────────────────────────
+  container.querySelectorAll('.cl-note-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cid  = btn.dataset.cid;
+      const wrap = document.getElementById(`cl-nw-${cid}`);
+      if (!wrap) return;
+      const open = wrap.style.display !== 'none';
+      wrap.style.display = open ? 'none' : 'block';
+      if (!open) wrap.querySelector('textarea')?.focus();
+    });
+  });
+
+  // ── save note ─────────────────────────────────────────────────────────────
+  container.querySelectorAll('.cl-save-note').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cid  = btn.dataset.cid;
+      const wrap = document.getElementById(`cl-nw-${cid}`);
+      const ta   = wrap?.querySelector('textarea');
+      if (!ta) return;
+      const note = ta.value;
+      if (_clCache[pid][cid]) _clCache[pid][cid].note = note;
+      const itemEl = container.querySelector(`.cl-item[data-cid="${cid}"]`);
+      if (itemEl) {
+        let prev = itemEl.querySelector('.cl-note-preview');
+        if (note) {
+          if (!prev) { prev = document.createElement('div'); prev.className='cl-note-preview'; itemEl.querySelector('.cl-row').after(prev); }
+          prev.textContent = note;
+        } else if (prev) { prev.remove(); }
+      }
+      wrap.style.display = 'none';
+      const ok = await window.clApiPatch(pid, { [`${cid}/note`]: note });
+      if (!ok) showToast('⚠️ 備註儲存失敗');
+    });
+  });
+
+  // ── delete custom item ────────────────────────────────────────────────────
+  container.querySelectorAll('.cl-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cid = btn.dataset.cid;
+      if (!confirm('確定刪除？')) return;
+      const ok = await window.clApiDelete(pid, cid);
+      if (ok) { delete _clCache[pid][cid]; clRender(pid, container); }
+      else showToast('⚠️ 刪除失敗');
+    });
+  });
+
+  // ── add custom item ───────────────────────────────────────────────────────
+  const addBtn = container.querySelector('#cl-add-btn');
+  const addInp = container.querySelector('#cl-new-inp');
+  const catSel = container.querySelector('#cl-cat-sel');
+  const doAdd  = async () => {
+    const name = (addInp?.value||'').trim();
+    if (!name) { addInp?.focus(); return; }
+    const cat    = catSel?.value || '其他';
+    const now    = Date.now();
+    const cid    = `custom_${now}`;
+    // order: put at end of its category by using max existing order + 1000
+    const catItems = Object.values(_clCache[pid]).filter(t => (t.category||'其他') === cat);
+    const maxOrder = catItems.length ? Math.max(...catItems.map(t => t.order??0)) : 0;
+    const payload  = { name, category:cat, isChecked:false, isCustom:true, note:'', order:maxOrder+1000, createdAt:now };
+    if (addInp) addInp.value = '';
+    _clCache[pid][cid] = payload;
+    clRender(pid, container);
+    const ok = await window.clApiPatch(pid, { [cid]: payload });
+    if (!ok) { delete _clCache[pid][cid]; clRender(pid, container); showToast('⚠️ 新增失敗'); }
+  };
+  if (addBtn) addBtn.addEventListener('click', doAdd);
+  if (addInp) addInp.addEventListener('keydown', e => { if (e.key==='Enter') doAdd(); });
+
+  // ── Drag-and-Drop (HTML5 mouse + Pointer/Touch for mobile) ───────────────
+  container.querySelectorAll('.cl-group').forEach(group => {
+    let dragSrc = null;   // currently dragged .cl-item element
+    let touchDragSrc = null;
+    let touchPlaceholder = null;
+
+    // ── HTML5 drag events (desktop) ──────────────────────────────────────
+    group.querySelectorAll('.cl-item').forEach(item => {
+      item.addEventListener('dragstart', e => {
+        dragSrc = item;
+        item.classList.add('cl-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', item.dataset.cid);
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('cl-dragging');
+        group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
+        dragSrc = null;
+      });
+      item.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (item !== dragSrc) {
+          group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
+          item.classList.add('cl-drag-over');
+        }
+      });
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!dragSrc || dragSrc === item) return;
+        item.classList.remove('cl-drag-over');
+        // Reorder DOM within group
+        const items = [...group.querySelectorAll('.cl-item')];
+        const fromIdx = items.indexOf(dragSrc);
+        const toIdx   = items.indexOf(item);
+        if (fromIdx === toIdx) return;
+        if (toIdx > fromIdx) item.after(dragSrc);
+        else item.before(dragSrc);
+        clPersistOrder(pid, group, window.clApiPatch);
+      });
+    });
+
+    // ── Touch/Pointer events (mobile PWA) ─────────────────────────────────
+    group.querySelectorAll('.drag-handle').forEach(handle => {
+      handle.addEventListener('touchstart', e => {
+        touchDragSrc = handle.closest('.cl-item');
+        touchDragSrc.classList.add('cl-dragging');
+        // Create visual placeholder
+        touchPlaceholder = document.createElement('div');
+        touchPlaceholder.className = 'cl-placeholder';
+        touchPlaceholder.style.height = touchDragSrc.offsetHeight + 'px';
+        touchDragSrc.after(touchPlaceholder);
+      }, { passive: true });
+
+      handle.addEventListener('touchmove', e => {
+        if (!touchDragSrc) return;
+        e.preventDefault();
+        const touch  = e.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        const overItem = target?.closest('.cl-item');
+        if (overItem && overItem !== touchDragSrc && overItem.closest('.cl-group') === group) {
+          group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
+          overItem.classList.add('cl-drag-over');
+          // Move placeholder to indicate drop target
+          const items = [...group.querySelectorAll('.cl-item:not(.cl-dragging)')];
+          const touchY = touch.clientY;
+          const rect   = overItem.getBoundingClientRect();
+          if (touchY < rect.top + rect.height / 2) overItem.before(touchPlaceholder);
+          else overItem.after(touchPlaceholder);
+        }
+      }, { passive: false });
+
+      handle.addEventListener('touchend', e => {
+        if (!touchDragSrc) return;
+        touchDragSrc.classList.remove('cl-dragging');
+        group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
+        // Insert dragged item where placeholder is
+        if (touchPlaceholder && touchPlaceholder.parentNode === group) {
+          group.insertBefore(touchDragSrc, touchPlaceholder);
+        }
+        if (touchPlaceholder) { touchPlaceholder.remove(); touchPlaceholder = null; }
+        clPersistOrder(pid, group, window.clApiPatch);
+        touchDragSrc = null;
+      });
+    });
+  });
+}
+
+
+function clPersistOrder(pid, groupEl, patchFn) {
+  const items = [...groupEl.querySelectorAll('.cl-item')];
+  const patchData = {};
+  items.forEach((el, idx) => {
+    const cid   = el.dataset.cid;
+    const order = (idx + 1) * 1000;
+    if (_clCache[pid][cid]) _clCache[pid][cid].order = order;
+    patchData[`${cid}/order`] = order;
+  });
+  // Optimistic update done (cache already mutated); fire PATCH async
+  (typeof patchFn === 'function' ? patchFn : window.clApiPatch)(pid, patchData)
+    .catch(e => console.warn('clPersistOrder PATCH failed', e));
+}
+
+function clClearCache(pid) { delete _clCache[pid]; }
 
 async function saveDB() {
   // 雲端是唯一真相來源，不再寫本地的 tripdb
@@ -361,36 +676,42 @@ function renderHdrDot() {
   const color = p ? (p.color || '#2d6a4f') : 'var(--accent)';
   $('proj-name').textContent      = p ? p.name : '選擇專案';
   $('hdr-dot').style.background   = color;
-  $('new-btn').style.background   = color;
 }
 
 // ── 專案下拉（事件委派，避免每次 render 重複綁定）──
 function renderDD() {
   const el = $('dd');
+  const addRow = `
+    <div class="pi-add" data-add-proj="1">
+      <span class="pi-add-icon">+</span>
+      <span>新增旅遊專案</span>
+    </div>`;
   if (!db.projects.length) {
-    el.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text3);font-size:12px">點 + 新增旅遊專案</div>';
-    return;
+    el.innerHTML = addRow;
+  } else {
+    el.innerHTML = db.projects.map(p => `
+      <div class="pi ${p.id === ap ? 'active' : ''}" data-proj="${p.id}">
+        <div class="pdot" style="background:${p.color || '#2d6a4f'}"></div>
+        <div class="pinfo">
+          <div class="pn">${esc(p.name)}</div>
+          <div class="pm">${esc(p.destination || '')}${p.startDate ? ' · ' + p.startDate : ''}${p.endDate ? '～' + p.endDate : ''}</div>
+        </div>
+        <button class="pedit" data-edit-proj="${p.id}" title="編輯">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="pdel" data-del-proj="${p.id}" title="刪除">✕</button>
+      </div>`).join('') + addRow;
   }
-  el.innerHTML = db.projects.map(p => `
-    <div class="pi ${p.id === ap ? 'active' : ''}" data-proj="${p.id}">
-      <div class="pdot" style="background:${p.color || '#2d6a4f'}"></div>
-      <div class="pinfo">
-        <div class="pn">${esc(p.name)}</div>
-        <div class="pm">${esc(p.destination || '')}${p.startDate ? ' · ' + p.startDate : ''}${p.endDate ? '～' + p.endDate : ''}</div>
-      </div>
-      <button class="pedit" data-edit-proj="${p.id}" title="編輯">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      </button>
-      <button class="pdel" data-del-proj="${p.id}" title="刪除">✕</button>
-    </div>`).join('');
 
   // 事件委派：一個 listener 處理所有行
   el.addEventListener('click', e => {
     const delBtn  = e.target.closest('.pdel');
     const editBtn = e.target.closest('.pedit');
+    const addBtn  = e.target.closest('.pi-add');
     const row     = e.target.closest('.pi');
     if (delBtn)       { e.stopPropagation(); delProj(delBtn.dataset.delProj); }
     else if (editBtn) { e.stopPropagation(); editProj(editBtn.dataset.editProj); }
+    else if (addBtn)  { closeDD(); openNewProj(); }
     else if (row)     { selProj(row.dataset.proj); }
   }, { once: true }); // once: true 讓每次 renderDD 只綁一次新 listener
 }
@@ -407,78 +728,50 @@ function renderHome() {
   }
 
   const wishes  = (db.wishlist[ap] || []).length;
-  const trips   = (db.trips[ap] || []).length;
+  const trips   = (db.trips[ap]   || []).length;
   const allDays = getTripDays();
-  const fmtDate = d => { if (!d) return ''; const [y, m, dd] = d.split('-'); return `${y}/${m}/${dd}`; };
+  const fmtDate = d => { if (!d) return ''; const [y,m,dd] = d.split('-'); return `${y}/${m}/${dd}`; };
   const dateStr = p.startDate ? `${fmtDate(p.startDate)} ～ ${fmtDate(p.endDate)}` : '';
 
-  // 倒數天數計算
   let countdownHtml = '';
   if (p.startDate) {
     const today = new Date(); today.setHours(0,0,0,0);
     const start = new Date(p.startDate); start.setHours(0,0,0,0);
-    const end   = p.endDate ? new Date(p.endDate) : null;
-    if (end) end.setHours(0,0,0,0);
+    const end_  = p.endDate ? new Date(p.endDate) : null;
+    if (end_) end_.setHours(0,0,0,0);
     const diff = Math.round((start - today) / 86400000);
-    if (diff > 0)       countdownHtml = `<div class="countdown-badge">✈️ 距出發還有 ${diff} 天</div>`;
+    if (diff > 0)        countdownHtml = `<div class="countdown-badge">✈️ 距出發還有 ${diff} 天</div>`;
     else if (diff === 0) countdownHtml = `<div class="countdown-badge" style="background:var(--coral-l);color:var(--coral)">🎉 今天出發！</div>`;
-    else if (end && today <= end) {
-      const dayNum = Math.round((today - start) / 86400000) + 1;
-      countdownHtml = `<div class="countdown-badge" style="background:var(--blue-l);color:var(--blue)">📍 旅途中 Day ${dayNum}</div>`;
-    } else if (end && today > end) {
+    else if (end_ && today <= end_) {
+      countdownHtml = `<div class="countdown-badge" style="background:var(--blue-l);color:var(--blue)">📍 旅途中 Day ${Math.round((today - start)/86400000)+1}</div>`;
+    } else if (end_ && today > end_) {
       countdownHtml = `<div class="countdown-badge" style="background:var(--surface2);color:var(--text3)">✅ 旅程已結束</div>`;
     }
   }
 
-  // 進度條：已安排天數 / 總天數
-  let progHtml = '';
-  if (allDays.length) {
-    const scheduledDays = allDays.filter(d => (db.trips[ap] || []).some(t => t.date === d)).length;
-    const pct = Math.round(scheduledDays / allDays.length * 100);
-    progHtml = `<div class="prog-bar-wrap">
-      <div class="prog-bar-label"><span>行程完整度</span><span>${scheduledDays}／${allDays.length} 天已安排</span></div>
-      <div class="prog-bar-track"><div class="prog-bar-fill" style="width:${pct}%"></div></div>
-    </div>`;
-  }
-
-  // 每日摘要
-  const summaryHtml = allDays.map((d, i) => {
-    const dayTrips = sortedDayTrips(d);
-    const [y2, m2, d2] = d.split('-').map(Number);
-    const wk    = WKDAY[new Date(y2, m2 - 1, d2).getDay()];
-    const label = `Day ${i + 1}  ${m2}/${d2}（週${wk}）`;
-    if (!dayTrips.length) return `<div class="day-summary" data-idx="${i}"><div class="ds-label">${label}</div><div class="ds-names ds-empty">尚未安排</div></div>`;
-    const LIMIT = 22;
-    let names = '', count = 0;
-    for (const t of dayTrips) {
-      const candidate = names + (names ? '・' : '') + t.name;
-      if (candidate.length > LIMIT) break;
-      names = candidate; count++;
-    }
-    const rest = dayTrips.length - count;
-    if (rest > 0) names += `…等 ${dayTrips.length} 個`;
-    return `<div class="day-summary" data-idx="${i}"><div class="ds-label">${label}</div><div class="ds-names">${names}</div></div>`;
-  }).join('');
-
   el.innerHTML = `
     <div style="padding:16px 0 8px">
       <div style="font-size:26px;font-weight:700;margin-bottom:4px;letter-spacing:-.3px">${esc(p.name)}</div>
-      ${p.destination ? `<div style="font-size:12px;color:var(--text3);margin-bottom:2px">${esc(p.destination)}</div>` : ''}
-      ${dateStr ? `<div style="font-size:12px;color:var(--text3);margin-bottom:10px">${dateStr}</div>` : '<div style="margin-bottom:10px"></div>'}
+      ${p.destination?`<div style="font-size:12px;color:var(--text3);margin-bottom:2px">${esc(p.destination)}</div>`:''}
+      ${dateStr?`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">${dateStr}</div>`:'<div style="margin-bottom:10px"></div>'}
       ${countdownHtml}
       <div class="hstats">
-        <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">願望清單</div></div>
+        <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">地點清單</div></div>
         <div class="hstat"><div class="hsv">${allDays.length}</div><div class="hsl">天行程</div></div>
         <div class="hstat hstat-click" data-goto="timeline"><div class="hsv">${trips}</div><div class="hsl">地點安排</div></div>
       </div>
-      ${progHtml}
-      ${allDays.length ? `<div style="margin-top:8px">${summaryHtml}</div>` : ''}
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:10px">
+      <div class="cl-hdr-row">
+        <span class="cl-hdr-title">準備清單</span>
+        <span class="cl-hdr-prog" id="cl-prog-label"></span>
+      </div>
+      <div class="cl-prog-track"><div class="cl-prog-fill" id="cl-prog-fill" style="width:0%"></div></div>
+      <div id="cl-body"></div>
     </div>`;
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
-  el.querySelectorAll('.day-summary').forEach(s => s.addEventListener('click', () => {
-    currentDayIdx = Number(s.dataset.idx); showTab('timeline');
-  }));
+  clLoad(ap, el.querySelector('#cl-body'));
 }
 
 // =============================================================
@@ -500,7 +793,7 @@ function renderWish() {
   // 取得所有類別
   const allCats = [...new Set(wishes.map(w => w.category))];
 
-  let html = `<div class="shd"><h2>願望清單</h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">多地點匯入</button><button class="add-btn" id="wish-add-btn">新增地點</button></div></div>`;
+  let html = `<div class="shd"><h2>地點清單</h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">多地點匯入</button><button class="add-btn" id="wish-add-btn">新增地點</button></div></div>`;
 
   // 搜尋欄 + 篩選 chips
   html += `<div id="wish-search-row">
@@ -513,7 +806,7 @@ function renderWish() {
       <button class="filter-chip ${wishFilter.cat === 'unscheduled' ? 'active' : ''}" data-filter-cat="unscheduled">未排入</button>
     </div>
     <div id="wish-sort-row">
-      <select id="wish-sort" style="font-size:11px;padding:3px 6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer">
+      <select id="wish-sort" style="font-size:11px;padding:0 6px;height:26px;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer">
         <option value="rating"    ${wishFilter.sortField==='rating'   ?'selected':''}>依評分</option>
         <option value="name"      ${wishFilter.sortField==='name'     ?'selected':''}>依名稱</option>
         <option value="createdAt" ${wishFilter.sortField==='createdAt'?'selected':''}>依加入時間</option>
@@ -761,11 +1054,11 @@ function renderTimeline() {
       ? `<div class="day-time-summary">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span></div>`
       : '';
 
-    html += `<div class="shd" style="margin-top:0"><h2>行程</h2><button class="add-btn" id="timeline-add-btn">從願望清單新增</button></div>`;
+    html += `<div class="shd" style="margin-top:0"><h2>行程安排</h2><button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div>`;
     html += timeSummary;
 
     if (!dayTrips.length) {
-      html += `<div class="empty" style="padding:24px 0"><div class="ei">📍</div><p>今天還沒有行程<br>從願望清單排入</p></div>`;
+      html += `<div class="empty" style="padding:24px 0"><div class="ei">📍</div><p>今天還沒有行程<br>從地點清單排入</p></div>`;
     } else {
       html += `<div id="trip-list">`;
       dayTrips.forEach(t => {
@@ -792,7 +1085,7 @@ function renderTimeline() {
         </div>`;
       });
       html += `</div>
-      <button class="add-btn" id="timeline-add-btn-bottom" style="width:100%;justify-content:center;margin-top:6px;background:var(--surface2);color:var(--text);border:1px solid var(--border)">＋ 從願望清單新增</button>`;
+      <button class="add-btn" id="timeline-add-btn-bottom" style="width:100%;justify-content:center;margin-top:6px;background:var(--surface2);color:var(--text);border:1px solid var(--border)">＋ 從地點清單新增</button>`;
     }
   }
 
@@ -932,9 +1225,13 @@ function initDragSort(list, dateStr) {
 //  Route navigation
 // =============================================================
 function extractWaypoint(t) {
-  if (!t.mapUrl) return t.name;
-  const m = t.mapUrl.match(/place\/([^/@?]+)/);
-  return m ? decodeURIComponent(m[1]).replace(/\+/g, ' ') : t.name;
+  if (t.mapUrl) {
+    const coordMatch = t.mapUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (coordMatch) return `${coordMatch[1]},${coordMatch[2]}`;
+    const placeMatch = t.mapUrl.match(/place\/([^/@?]+)/);
+    if (placeMatch) return decodeURIComponent(placeMatch[1]).replace(/\+/g, ' ');
+  }
+  return t.name;
 }
 
 function buildDrivingUrl(trips, mode) {
@@ -1219,6 +1516,7 @@ function toggleDD() { const d = $('dd'), b = $('proj-btn'); const o = d.classLis
 function closeDD()  { $('dd').classList.remove('open'); $('proj-btn').classList.remove('open'); }
 function selProj(id) {
   ap = id; currentDayIdx = 0;
+  clClearCache(id);
   wishFilter = { cat: 'all', sortField: 'rating', sortDir: 'desc', query: '' };
   closeDD(); renderAll(); showTab('home');
   chrome.storage.local.set({ activeProject: id });
@@ -1464,11 +1762,23 @@ function openSched(wishId) {
   $('sc-slots').innerHTML = ''; om('m-sched');
 }
 
+function buildTimeOptions(selected = '') {
+  let opts = '<option value="">未定</option>';
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const val = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      opts += `<option value="${val}"${selected === val ? ' selected' : ''}>${val}</option>`;
+    }
+  }
+  return opts;
+}
+
 function slotEntryHTML(time = '', dur = 60, note = '') {
   const durOpts = Object.entries(DUR).map(([v, l]) => `<option value="${v}"${String(v) === String(dur) ? ' selected' : ''}>${l}</option>`).join('');
+  const timeOpts = buildTimeOptions(time);
   return `<div class="slot-entry" style="margin-bottom:8px">
     <div class="frow" style="margin-bottom:4px">
-      <div class="f" style="margin:0"><label>出發時間</label><input type="time" class="slot-time" value="${time}"></div>
+      <div class="f" style="margin:0"><label>出發時間</label><select class="slot-time">${timeOpts}</select></div>
       <div class="f" style="margin:0"><label>停留</label><select class="slot-dur">${durOpts}</select></div>
     </div>
     <input class="slot-note" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;font-size:12px;color:var(--text);font-family:inherit" placeholder="備註（選填）" value="${esc(note)}">
@@ -1490,7 +1800,7 @@ function updateSlots() {
     const date = cb.dataset.date, defDur = cb.dataset.dur;
     const slots = existing[date] || [{ time: '', dur: defDur, note: '' }];
     return `<div class="day-slot" data-date="${date}" data-defdur="${defDur}">
-      <div class="day-slot-hd"><span>${date}</span><button class="add-slot-btn" data-slot-date="${date}">＋ 再加一次</button></div>
+      <div class="day-slot-hd"><span>${date}</span><button class="add-slot-btn" data-slot-date="${date}">＋ 同日再加一個時段</button></div>
       ${slots.map(s => slotEntryHTML(s.time, s.dur, s.note)).join('')}
     </div>`;
   }).join('');
@@ -1780,7 +2090,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.__inAppBrowserBlocked) return; // 內嵌瀏覽器環境已顯示提醒畫面，不需要繼續初始化
   // Header
   on('proj-btn', 'click', toggleDD);
-  on('new-btn',  'click', openNewProj);
 
   // Onboarding
   on('btn-onboard-start', 'click', () => dismissOnboard(true));
@@ -1995,3 +2304,218 @@ window.addEventListener('pageshow', (event) => {
     loadDB();
   }
 });
+
+// =============================================================
+//  Phase 2 — Invite & Join Mechanism (PWA)
+// =============================================================
+
+// ── Helpers ──────────────────────────────────────────────────
+
+/** Generate a random 6-character alphanumeric code (uppercase). */
+function _genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I for readability
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+/** Check whether a code entry is still within its 24-hour TTL. */
+function _isCodeValid(entry) {
+  if (!entry || !entry.createdAt) return false;
+  return (Date.now() - entry.createdAt) < 24 * 60 * 60 * 1000;
+}
+
+// ── Owner flow: open invite modal ────────────────────────────
+
+function openInviteModal() {
+  if (!ap) { showToast('⚠️ Please select a project first.'); return; }
+  const proj = db.projects.find(p => p.id === ap);
+  if (!proj) return;
+
+  $('invite-proj-name').textContent = proj.name;
+  $('invite-code-display').textContent = '——————';
+  $('invite-status').textContent = '';
+  $('btn-gen-invite').disabled = false;
+  $('btn-gen-invite').textContent = 'Generate New Code';
+
+  const authMenu = $('auth-menu');
+  if (authMenu) authMenu.style.display = 'none';
+
+  om('m-invite');
+}
+
+async function generateInviteCode() {
+  if (!ap) return;
+  const btn = $('btn-gen-invite');
+  const statusEl = $('invite-status');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  statusEl.textContent = '';
+
+  const code = _genCode();
+  const ok = await window.writeInviteCode(code, ap);
+
+  if (ok) {
+    $('invite-code-display').textContent = code;
+    statusEl.textContent = 'Code valid for 24 hours.';
+    statusEl.style.color = 'var(--text3)';
+  } else {
+    statusEl.textContent = '⚠️ Failed to generate code. Please try again.';
+    statusEl.style.color = 'var(--coral)';
+  }
+  btn.textContent = 'Generate New Code';
+  btn.disabled = false;
+}
+
+async function copyInviteCode() {
+  const code = $('invite-code-display').textContent.trim();
+  if (!code || code.includes('—')) { showToast('Generate a code first.'); return; }
+  try {
+    await navigator.clipboard.writeText(code);
+    showToast('✅ Code copied!');
+  } catch {
+    showToast('⚠️ Could not copy. Please copy manually: ' + code);
+  }
+}
+
+// ── Guest flow: join modal ────────────────────────────────────
+
+function openJoinModal() {
+  $('join-code-input').value = '';
+  $('join-status').textContent = '';
+  $('join-status').style.color = 'var(--text3)';
+  $('btn-join-confirm').disabled = false;
+  $('btn-join-confirm').textContent = 'Join Project';
+
+  const authMenu = $('auth-menu');
+  if (authMenu) authMenu.style.display = 'none';
+
+  om('m-join');
+}
+
+async function joinProject() {
+  const rawCode = ($('join-code-input').value || '').trim().toUpperCase();
+  const statusEl = $('join-status');
+  const btn = $('btn-join-confirm');
+
+  if (rawCode.length !== 6) {
+    statusEl.textContent = 'Please enter a 6-character code.';
+    statusEl.style.color = 'var(--coral)';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Joining…';
+  statusEl.textContent = 'Looking up code…';
+  statusEl.style.color = 'var(--text3)';
+
+  // 1. Read the invite code
+  const entry = await window.readInviteCode(rawCode);
+  if (!entry || !entry.pid) {
+    statusEl.textContent = '⚠️ Invalid code. Please check and try again.';
+    statusEl.style.color = 'var(--coral)';
+    btn.disabled = false; btn.textContent = 'Join Project';
+    return;
+  }
+
+  // 2. Check 24h TTL
+  if (!_isCodeValid(entry)) {
+    statusEl.textContent = '⚠️ This code has expired. Ask your partner for a new one.';
+    statusEl.style.color = 'var(--coral)';
+    btn.disabled = false; btn.textContent = 'Join Project';
+    return;
+  }
+
+  const pid = entry.pid;
+
+  // 3. Check the user is not already a member
+  const existing = db.projects.find(p => p.id === pid);
+  if (existing) {
+    statusEl.textContent = `✅ You're already in "${existing.name}".`;
+    statusEl.style.color = 'var(--accent)';
+    btn.disabled = false; btn.textContent = 'Join Project';
+    return;
+  }
+
+  // 4. Write self into /projects/${pid}/members/${uid}
+  const user = getCurrentUser();
+  if (!user) {
+    statusEl.textContent = '⚠️ Not logged in. Please sign in first.';
+    statusEl.style.color = 'var(--coral)';
+    btn.disabled = false; btn.textContent = 'Join Project';
+    return;
+  }
+
+  const memberOk = await window.projPatch(pid, `members/${user.uid}`, { role: 'member', nickname: '' });
+  if (!memberOk) {
+    statusEl.textContent = '⚠️ Could not join the project. The code may be invalid.';
+    statusEl.style.color = 'var(--coral)';
+    btn.disabled = false; btn.textContent = 'Join Project';
+    return;
+  }
+
+  // 5. Add project to own user index
+  await window.userProjectsAdd(pid);
+
+  // 6. Reload DB so the new project appears immediately
+  statusEl.textContent = '✅ Joined! Loading project…';
+  statusEl.style.color = 'var(--accent)';
+
+  const cloud = await window.fbRead();
+  if (cloud && cloud.projects) {
+    db = cloud;
+    if (!db.wishlist) db.wishlist = {};
+    if (!db.trips) db.trips = {};
+    ap = pid;
+    chrome.storage.local.set({ activeProject: ap });
+  }
+
+  cm('m-join');
+  renderAll();
+  showTab('home');
+  showToast('🎉 You have joined the project!');
+}
+
+// ── Wire up event listeners ───────────────────────────────────
+// (appended to run after the main DOMContentLoaded block initialises)
+
+(function wirePhase2() {
+  function tryBind() {
+    const inviteBtn = document.getElementById('btn-open-invite');
+    if (!inviteBtn) { setTimeout(tryBind, 200); return; } // wait for DOM
+
+    on('btn-open-invite',  'click', openInviteModal);
+    on('mc-invite',        'click', () => cm('m-invite'));
+    on('btn-gen-invite',   'click', generateInviteCode);
+    on('btn-copy-invite',  'click', copyInviteCode);
+
+    on('btn-open-join',    'click', openJoinModal);
+    on('mc-join',          'click', () => cm('m-join'));
+    on('btn-join-confirm', 'click', joinProject);
+
+    // Auto-uppercase join input + Enter key
+    const joinInput = document.getElementById('join-code-input');
+    if (joinInput) {
+      joinInput.addEventListener('input', () => {
+        const pos = joinInput.selectionStart;
+        joinInput.value = joinInput.value.toUpperCase();
+        joinInput.setSelectionRange(pos, pos);
+      });
+      joinInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') joinProject();
+      });
+    }
+
+    // Backdrop-click-to-close for new modals
+    ['m-invite', 'm-join'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryBind);
+  } else {
+    tryBind();
+  }
+})();
