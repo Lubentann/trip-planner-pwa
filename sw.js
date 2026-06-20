@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v15'; // 輸入框字體調整為16px避免iOS自動放大，版本號往上加
+const CACHE_NAME = 'trip-planner-v18'; // 命名統一（地點清單/行程安排）、新手引導修正、加入清單按鈕樣式
 const ASSETS = [
   './',
   './index.html',
