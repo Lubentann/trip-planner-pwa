@@ -6,7 +6,7 @@ import {
   signOut as fbSignOut, onAuthStateChanged, getRedirectResult
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import {
-  getDatabase, ref, get, set, update, remove
+  getDatabase, ref, get, set, update, remove, onValue
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -66,6 +66,19 @@ window.forceAccountSwitch = async function() { return true; };
 onAuthStateChanged(auth, (user) => {
   if (window.onAuthChange) window.onAuthChange(user);
 });
+
+// ── Token refresh (SDK equivalent) ──
+// The Firebase Web SDK refreshes tokens automatically on every call.
+// This explicit function exists for API parity with the Extension
+// (used by SSE reconnect logic in Phase 1).
+window.refreshFirebaseToken = async function() {
+  try {
+    const user = auth.currentUser;
+    if (!user) return false;
+    await user.getIdToken(true); // force refresh
+    return true;
+  } catch(e) { console.warn('refreshFirebaseToken failed', e); return false; }
+};
 
 // ═══════════════════════════════════════════════════════════════════
 //  Adapter utilities (same logic as Extension, SDK-based)
@@ -130,6 +143,17 @@ window.projPut    = _projPut;
 window.projPatch  = _projPatch;
 window.projDelete = _projDelete;
 
+// MERGE (HTTP PATCH) — field-level merge at a sub-path.
+// Unlike projPatch (PUT), this only updates the specified keys
+// and leaves unmentioned keys untouched. Use for concurrent-safe
+// single-field edits (e.g. rating, note).
+window.projMerge = async function(pid, subPath, fields) {
+  try {
+    await update(ref(db_, `projects/${pid}/${subPath}`), fields);
+    return true;
+  } catch(e) { console.warn('projMerge failed', e); return false; }
+};
+
 // ═══════════════════════════════════════════════════════════════════
 //  fbRead / fbWrite — same interface as before
 // ═══════════════════════════════════════════════════════════════════
@@ -147,6 +171,10 @@ window.fbRead = async function() {
   // 2. Read all projects in parallel
   const projResults = await Promise.all(pids.map(pid => _projRead(pid)));
 
+  // 2b. If every read returned null but we have pids, likely an auth issue
+  const allNull = projResults.every(r => r === null);
+  if (allNull && pids.length > 0) return { __authFailed: true };
+
   // 3. Assemble the db shape that app.js expects
   const assembled = { projects: [], wishlist: {}, trips: {} };
 
@@ -163,6 +191,7 @@ window.fbRead = async function() {
       endDate:     info.endDate     || '',
       color:       info.color       || '',
       createdAt:   info.createdAt   || 0,
+      ownerId:     info.ownerId     || '',
     });
 
     assembled.wishlist[pid] = _mapToArray(proj.wishlist);
@@ -246,18 +275,10 @@ window.clApiPut = async function(pid, data) {
 window.clApiPatch = async function(pid, updates) {
   const user = auth.currentUser; if (!user || !pid) return false;
   try {
-    // updates: flat { "taskId/field": value } → convert to nested for Firebase SDK
-    const nested = {};
-    Object.entries(updates).forEach(([k, v]) => {
-      const parts = k.split('/');
-      if (parts.length === 2) {
-        if (!nested[parts[0]]) nested[parts[0]] = {};
-        nested[parts[0]][parts[1]] = v;
-      } else {
-        nested[k] = v;
-      }
-    });
-    await update(ref(db_, `projects/${pid}/checklists/${user.uid}`), nested);
+    // Firebase SDK update() natively supports slash-separated keys
+    // e.g. { "taskId/done": true } merges only the "done" field.
+    // No manual nesting needed — passing flat paths is correct and safe.
+    await update(ref(db_, `projects/${pid}/checklists/${user.uid}`), updates);
     return true;
   } catch(e) { return false; }
 };
@@ -273,6 +294,12 @@ window.clApiDelete = async function(pid, taskId) {
 // ═══════════════════════════════════════════════════════════════════
 
 /** Expose userProjectsAdd so app.js can call it after joining a project. */
+window.userProjectsRemove = async function(pid) {
+  const user = auth.currentUser; if (!user || !pid) return false;
+  try { await remove(ref(db_, `users/${user.uid}/user_projects/${pid}`)); return true; }
+  catch(e) { console.warn('userProjectsRemove failed', e); return false; }
+};
+
 window.userProjectsAdd = async function(pid) {
   const user = auth.currentUser; if (!user || !pid) return false;
   try { await set(ref(db_, `users/${user.uid}/user_projects/${pid}`), true); return true; }
@@ -301,4 +328,23 @@ window.readInviteCode = async function(code) {
     const val = snap.val();
     return typeof val === 'string' ? JSON.parse(val) : val;
   } catch(e) { return null; }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  Real-time listener helper — used by app.js for SSE-equivalent sync
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Attach a real-time listener on a database path.
+ * Returns an unsubscribe function.
+ * @param {string} path — e.g. 'projects/{pid}/wishlist'
+ * @param {Function} callback — receives the value (object or null)
+ */
+window.fbListen = function(path, callback) {
+  const dbRef = ref(db_, path);
+  return onValue(dbRef, (snap) => {
+    callback(snap.exists() ? snap.val() : null);
+  }, (err) => {
+    console.warn('[fbListen] error on', path, err);
+  });
 };
