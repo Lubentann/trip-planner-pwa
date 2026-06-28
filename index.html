@@ -205,7 +205,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .wish-card{border-left:3px solid var(--accent);padding-left:12px}
 .trip-card{transition:opacity .15s;cursor:default;border-left:3px solid var(--accent);padding-left:12px}
 .trip-card.dragging{opacity:.25;pointer-events:none}
-.drag-placeholder-card{background:var(--accent-l);border:2px dashed var(--accent-m);border-radius:var(--rl);margin-bottom:6px;min-height:60px;transition:height .1s}
+.drop-indicator{position:absolute;left:4px;right:4px;height:3px;background:var(--accent);border-radius:2px;pointer-events:none;z-index:10;display:none}
 .onboard-step{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)}
 .onboard-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .onboard-text{flex:1}
@@ -349,8 +349,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .cl-group{display:flex;flex-direction:column}
 .cl-item{margin-bottom:4px;transition:opacity .15s}
 .cl-dragging{opacity:.4}
-.cl-drag-over{outline:2px dashed var(--accent);border-radius:4px;outline-offset:1px}
-.cl-placeholder{background:var(--accent-l);border:2px dashed var(--accent-m);border-radius:4px;margin-bottom:4px;pointer-events:none}
 .cl-done .cl-name{text-decoration:line-through;color:var(--text3)}
 .cl-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .cl-lbl{display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer}
