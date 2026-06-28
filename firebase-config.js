@@ -312,7 +312,7 @@ window.userProjectsAdd = async function(pid) {
  */
 window.writeInviteCode = async function(code, pid) {
   try {
-    const payload = JSON.stringify({ pid, createdAt: Date.now() });
+    const payload = { pid, createdAt: Date.now() };
     await set(ref(db_, `invite_codes/${code}`), payload);
     return true;
   } catch(e) { console.warn('writeInviteCode failed', e); return false; }
@@ -320,6 +320,7 @@ window.writeInviteCode = async function(code, pid) {
 
 /**
  * Read an invite code. Returns { pid, createdAt } or null.
+ * Handles both legacy JSON-string format and new structured object format.
  */
 window.readInviteCode = async function(code) {
   try {
@@ -328,6 +329,24 @@ window.readInviteCode = async function(code) {
     const val = snap.val();
     return typeof val === 'string' ? JSON.parse(val) : val;
   } catch(e) { return null; }
+};
+
+/**
+ * List all invite codes (for cleanup). Returns object map or null.
+ */
+window.listInviteCodes = async function() {
+  try {
+    const snap = await get(ref(db_, 'invite_codes'));
+    return snap.exists() ? snap.val() : null;
+  } catch(e) { return null; }
+};
+
+/**
+ * Delete a specific invite code.
+ */
+window.deleteInviteCode = async function(code) {
+  try { await remove(ref(db_, `invite_codes/${code}`)); return true; }
+  catch(e) { return false; }
 };
 
 // ═══════════════════════════════════════════════════════════════════
