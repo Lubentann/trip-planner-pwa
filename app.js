@@ -718,15 +718,10 @@ function renderHdrDot() {
 // ── 專案下拉（事件委派，避免每次 render 重複綁定）──
 function renderDD() {
   const el = $('dd');
-  const addRow = `
-    <div class="pi-add" data-add-proj="1">
-      <span class="pi-add-icon">+</span>
-      <span>新增旅遊專案</span>
-    </div>`;
-  if (!db.projects.length) {
-    el.innerHTML = addRow;
-  } else {
-    el.innerHTML = db.projects.map(p => `
+  const hasProjects = db.projects.length > 0;
+  const shareDisabled = !hasProjects ? 'style="flex:1;justify-content:center;background:var(--surface);opacity:0.4;pointer-events:none"' : 'style="flex:1;justify-content:center;background:var(--surface)"';
+
+  const projectRows = hasProjects ? db.projects.map(p => `
       <div class="pi ${p.id === ap ? 'active' : ''}" data-proj="${p.id}">
         <div class="pdot" style="background:${p.color || '#2d6a4f'}"></div>
         <div class="pinfo">
@@ -737,25 +732,32 @@ function renderDD() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         </button>
         <button class="pdel" data-del-proj="${p.id}" title="刪除">${IC.close}</button>
-      </div>`).join('') + `
-      <div class="pi-collab-section" style="display:flex;gap:1px;background:var(--border)">
-        <div class="pi-action-row" id="dd-share-proj" style="flex:1;justify-content:center;background:var(--surface)">
-          <span class="pi-action-icon">${IC.share}</span>
-          <span>分享專案</span>
-        </div>
-        <div class="pi-action-row" id="dd-join-proj" style="flex:1;justify-content:center;background:var(--surface)">
-          <span class="pi-action-icon">${IC.people}</span>
-          <span>加入專案</span>
-        </div>
-      </div>` + addRow;
-  }
+      </div>`).join('') : '';
+
+  const footer = `
+    <div class="pi-footer" style="display:flex;gap:1px;background:var(--border);border-top:1px solid var(--border);margin-top:${hasProjects ? '4px' : '0'}">
+      <div class="pi-action-row" id="dd-add-proj" style="flex:1;justify-content:center;background:var(--surface)">
+        <span class="pi-action-icon" style="font-size:15px;font-weight:700;color:var(--accent)">+</span>
+        <span>新增</span>
+      </div>
+      <div class="pi-action-row" id="dd-share-proj" ${shareDisabled}>
+        <span class="pi-action-icon">${IC.share}</span>
+        <span>分享專案</span>
+      </div>
+      <div class="pi-action-row" id="dd-join-proj" style="flex:1;justify-content:center;background:var(--surface)">
+        <span class="pi-action-icon">${IC.people}</span>
+        <span>加入專案</span>
+      </div>
+    </div>`;
+
+  el.innerHTML = projectRows + footer;
 
   // Event delegation: bind once, skip if already bound
   if (el._ddBound) return;
   el.addEventListener('click', e => {
     const delBtn   = e.target.closest('.pdel');
     const editBtn  = e.target.closest('.pedit');
-    const addBtn   = e.target.closest('.pi-add');
+    const addBtn   = e.target.closest('#dd-add-proj');
     const shareRow = e.target.closest('#dd-share-proj');
     const joinRow  = e.target.closest('#dd-join-proj');
     const row      = e.target.closest('.pi');
@@ -1646,6 +1648,7 @@ function _scheduleTripsRender() {
 //  Project CRUD
 // =============================================================
 function openNewProj() {
+  if (db.projects.length >= 3) { showToast('已達專案上限（最多 3 個）'); return; }
   eid = null;
   $('mpt').textContent = '新旅遊';
   ['pi-name','pi-dest','pi-s','pi-e'].forEach(i => $(i).value = '');
@@ -2634,6 +2637,14 @@ async function joinProject() {
     return;
   }
 
+  // 3b. Check 3-project cap
+  if (db.projects.length >= 3) {
+    statusEl.textContent = '已達專案上限（最多 3 個）';
+    statusEl.style.color = 'var(--coral)';
+    btn.disabled = false; btn.textContent = 'Join Project';
+    return;
+  }
+
   // 4. Resolve current user
   const user = getCurrentUser();
   if (!user) {
@@ -2680,15 +2691,13 @@ async function joinProject() {
 
 (function wirePhase2() {
   function tryBind() {
-    const inviteBtn = document.getElementById('btn-open-invite');
-    if (!inviteBtn) { setTimeout(tryBind, 200); return; } // wait for DOM
+    const inviteModal = document.getElementById('m-invite');
+    if (!inviteModal) { setTimeout(tryBind, 200); return; } // wait for DOM
 
-    on('btn-open-invite',  'click', openInviteModal);
     on('mc-invite',        'click', () => cm('m-invite'));
     on('btn-gen-invite',   'click', generateInviteCode);
     on('btn-copy-invite',  'click', copyInviteCode);
 
-    on('btn-open-join',    'click', openJoinModal);
     on('mc-join',          'click', () => cm('m-join'));
     on('btn-join-confirm', 'click', joinProject);
 
