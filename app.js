@@ -545,63 +545,62 @@ function clBind(pid, container) {
     });
   });
 
-  // ── Drag-and-Drop (Lift-and-Place with placeholder) ─────────────────────
+  // ── Drag-and-Drop (Static Indicator — no layout push) ────────────────────
   container.querySelectorAll('.cl-group').forEach(group => {
     let dragSrc = null;
-    let placeholder = null;
+    let targetItem = null;
+    let clInsertBefore = true;
+    let indicator = null;
     let touchDragSrc = null;
 
-    function getPlaceholder(h) {
-      if (!placeholder) {
-        placeholder = document.createElement('div');
-        placeholder.className = 'cl-placeholder';
+    function getIndicator() {
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.className = 'drop-indicator';
+        group.style.position = 'relative';
+        group.appendChild(indicator);
       }
-      placeholder.style.height = (h || 32) + 'px';
-      return placeholder;
+      indicator.style.display = 'block';
+      return indicator;
     }
-    function removePlaceholder() { if (placeholder && placeholder.parentNode) placeholder.remove(); }
+    function hideIndicator() { if (indicator) indicator.style.display = 'none'; }
 
-    // ── HTML5 drag events (desktop) — placeholder model ──────────────────
+    // ── HTML5 drag events (desktop) ──────────────────────────────────────
     group.querySelectorAll('.cl-item').forEach(item => {
       item.addEventListener('dragstart', e => {
         dragSrc = item;
         item.classList.add('cl-dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', item.dataset.cid);
-        const ph = getPlaceholder(item.offsetHeight);
-        requestAnimationFrame(() => item.after(ph));
       });
       item.addEventListener('dragend', () => {
         item.classList.remove('cl-dragging');
-        if (placeholder && placeholder.parentNode === group) {
-          group.insertBefore(dragSrc, placeholder);
-        }
-        removePlaceholder();
-        dragSrc = null;
+        hideIndicator();
+        if (!dragSrc || !targetItem || dragSrc === targetItem) { dragSrc = null; targetItem = null; return; }
+        if (clInsertBefore) group.insertBefore(dragSrc, targetItem);
+        else targetItem.insertAdjacentElement('afterend', dragSrc);
+        dragSrc = null; targetItem = null;
         clPersistOrder(pid, group, window.clApiPatch);
       });
       item.addEventListener('dragover', e => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (!dragSrc || item === dragSrc) return;
-        const ph = getPlaceholder();
+        targetItem = item;
         const rect = item.getBoundingClientRect();
-        if (e.clientY < rect.top + rect.height / 2) {
-          if (item.previousSibling !== ph) group.insertBefore(ph, item);
-        } else {
-          if (item.nextSibling !== ph) item.after(ph);
-        }
+        const groupRect = group.getBoundingClientRect();
+        clInsertBefore = e.clientY < rect.top + rect.height / 2;
+        const ind = getIndicator();
+        ind.style.top = ((clInsertBefore ? rect.top : rect.bottom) - groupRect.top - 1.5) + 'px';
       });
       item.addEventListener('drop', e => e.preventDefault());
     });
 
-    // ── Touch/Pointer events (mobile) — placeholder model ────────────────
+    // ── Touch/Pointer events (mobile) — same static indicator ────────────
     group.querySelectorAll('.drag-handle').forEach(handle => {
       handle.addEventListener('touchstart', e => {
         touchDragSrc = handle.closest('.cl-item');
         touchDragSrc.classList.add('cl-dragging');
-        const ph = getPlaceholder(touchDragSrc.offsetHeight);
-        touchDragSrc.after(ph);
       }, { passive: true });
 
       handle.addEventListener('touchmove', e => {
@@ -611,22 +610,25 @@ function clBind(pid, container) {
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
         const overItem = target?.closest('.cl-item');
         if (overItem && overItem !== touchDragSrc && overItem.closest('.cl-group') === group) {
-          const ph = getPlaceholder();
+          targetItem = overItem;
           const rect = overItem.getBoundingClientRect();
-          if (touch.clientY < rect.top + rect.height / 2) overItem.before(ph);
-          else overItem.after(ph);
+          const groupRect = group.getBoundingClientRect();
+          clInsertBefore = touch.clientY < rect.top + rect.height / 2;
+          const ind = getIndicator();
+          ind.style.top = ((clInsertBefore ? rect.top : rect.bottom) - groupRect.top - 1.5) + 'px';
         }
       }, { passive: false });
 
       handle.addEventListener('touchend', () => {
         if (!touchDragSrc) return;
         touchDragSrc.classList.remove('cl-dragging');
-        if (placeholder && placeholder.parentNode === group) {
-          group.insertBefore(touchDragSrc, placeholder);
+        hideIndicator();
+        if (targetItem && targetItem !== touchDragSrc) {
+          if (clInsertBefore) group.insertBefore(touchDragSrc, targetItem);
+          else targetItem.insertAdjacentElement('afterend', touchDragSrc);
         }
-        removePlaceholder();
         clPersistOrder(pid, group, window.clApiPatch);
-        touchDragSrc = null;
+        touchDragSrc = null; targetItem = null;
       });
     });
   });
@@ -1202,16 +1204,20 @@ function scrollActiveDateIntoView() {
 //  Drag sort
 // =============================================================
 function initDragSort(list, dateStr) {
-  let dragging = null, dragOverCard = null, insertBefore = true, placeholder = null;
+  let dragging = null, targetCard = null, insertBefore = true;
+  let indicator = null;
 
-  function getPlaceholder() {
-    if (placeholder && placeholder.parentNode) return placeholder;
-    placeholder = document.createElement('div');
-    placeholder.className = 'drag-placeholder-card';
-    return placeholder;
+  function getIndicator() {
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.className = 'drop-indicator';
+      list.style.position = 'relative';
+      list.appendChild(indicator);
+    }
+    indicator.style.display = 'block';
+    return indicator;
   }
-  function removePlaceholder() { if (placeholder && placeholder.parentNode) placeholder.remove(); }
-  function clearHints() { list.querySelectorAll('.trip-card').forEach(c => c.classList.remove('drag-target')); removePlaceholder(); }
+  function hideIndicator() { if (indicator) indicator.style.display = 'none'; }
 
   list.querySelectorAll('.trip-card').forEach(card => {
     card.addEventListener('dragstart', e => {
@@ -1225,16 +1231,11 @@ function initDragSort(list, dateStr) {
     card.addEventListener('dragend', async () => {
       card.classList.remove('dragging');
       _isDragging = false;
-      clearHints();
-      if (!dragging || !dragOverCard || dragging === dragOverCard) { dragging = null; dragOverCard = null; return; }
-      if (placeholder && placeholder.parentNode) {
-        list.insertBefore(dragging, placeholder);
-        removePlaceholder();
-      } else {
-        if (insertBefore) list.insertBefore(dragging, dragOverCard);
-        else dragOverCard.insertAdjacentElement('afterend', dragging);
-      }
-      dragging = null; dragOverCard = null;
+      hideIndicator();
+      if (!dragging || !targetCard || dragging === targetCard) { dragging = null; targetCard = null; return; }
+      if (insertBefore) list.insertBefore(dragging, targetCard);
+      else targetCard.insertAdjacentElement('afterend', dragging);
+      dragging = null; targetCard = null;
       const newOrder = [...list.querySelectorAll('.trip-card')].map(c => c.dataset.tripId);
       newOrder.forEach((id, i) => { const t = (db.trips[ap] || []).find(x => x.id === id); if (t) t.order = i; });
       await Promise.all(newOrder.map((id, i) => window.projMerge(ap, `trips/${id}`, { order: i })));
@@ -1243,27 +1244,19 @@ function initDragSort(list, dateStr) {
     card.addEventListener('dragover', e => {
       e.preventDefault(); e.dataTransfer.dropEffect = 'move';
       if (!dragging || dragging === card) return;
-      dragOverCard = card;
+      targetCard = card;
       const rect = card.getBoundingClientRect();
+      const listRect = list.getBoundingClientRect();
       insertBefore = e.clientY < rect.top + rect.height / 2;
-      const ph = getPlaceholder();
-      ph.style.height = dragging.offsetHeight + 'px';
-      if (insertBefore) { if (card.previousSibling !== ph) list.insertBefore(ph, card); }
-      else              { if (card.nextSibling !== ph)     card.insertAdjacentElement('afterend', ph); }
+      const ind = getIndicator();
+      ind.style.top = ((insertBefore ? rect.top : rect.bottom) - listRect.top - 1.5) + 'px';
     });
 
     card.addEventListener('drop', e => e.preventDefault());
   });
 
-  list.addEventListener('dragover', e => {
-    e.preventDefault();
-    if (!dragging) return;
-    const ph = getPlaceholder();
-    if (!ph.parentNode) list.appendChild(ph);
-  });
-
   list.addEventListener('dragleave', e => {
-    if (!list.contains(e.relatedTarget)) { clearHints(); dragOverCard = null; }
+    if (!list.contains(e.relatedTarget)) { hideIndicator(); targetCard = null; }
   });
 }
 
