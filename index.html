@@ -200,7 +200,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .travel-mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .transit-seg{font-size:12px;color:var(--blue);text-decoration:none;padding:6px 10px;background:var(--blue-l);border-radius:6px;display:block}
 .transit-seg:hover{opacity:.85}
-.drag-handle{cursor:grab;flex-shrink:0;padding:2px;display:flex;align-items:center;color:var(--text3);touch-action:none;user-select:none}
+.drag-handle{cursor:grab;flex-shrink:0;padding:10px 8px;margin:-8px -6px;display:flex;align-items:center;color:var(--text3);touch-action:none;user-select:none}
 .drag-handle:active{cursor:grabbing}
 .wish-card{border-left:3px solid var(--accent);padding-left:12px}
 .trip-card{transition:opacity .15s;cursor:default;border-left:3px solid var(--accent);padding-left:12px}
@@ -402,8 +402,6 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
     <div id="auth-menu" style="display:none;position:absolute;right:14px;top:42px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:50;min-width:180px">
       <div id="auth-info" style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px"></div>
       <button id="auth-btn" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Google 登入同步</button>
-      <button id="btn-open-invite" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2);cursor:pointer;margin-top:6px">🔗 Invite Partner</button>
-      <button id="btn-open-join" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2);cursor:pointer;margin-top:4px">🤝 Join a Project</button>
     </div>
     <div id="dd"></div>
     <div id="tabs">
