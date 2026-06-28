@@ -205,7 +205,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .wish-card{border-left:3px solid var(--accent);padding-left:12px}
 .trip-card{transition:opacity .15s;cursor:default;border-left:3px solid var(--accent);padding-left:12px}
 .trip-card.dragging{opacity:.25;pointer-events:none}
-.drag-placeholder-card{background:var(--accent-l);border:2px dashed var(--accent-m);border-radius:var(--rl);margin-bottom:8px;min-height:60px;transition:height .1s}
+.drag-placeholder-card{background:var(--accent-l);border:2px dashed var(--accent-m);border-radius:var(--rl);margin-bottom:6px;min-height:60px;transition:height .1s}
 .onboard-step{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)}
 .onboard-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .onboard-text{flex:1}
@@ -366,6 +366,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .cl-filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .cl-note-btn{color:var(--text3)}
 .cl-note-preview{font-size:10px;color:var(--text3);padding:1px 0 1px 24px;white-space:pre-wrap;word-break:break-all;line-height:1.4}
+.cl-cat-tag{font-size:9px;font-weight:600;color:var(--text3);background:var(--border);border-radius:3px;padding:1px 5px;margin-left:4px;flex-shrink:0;white-space:nowrap;cursor:pointer}
+.cl-cat-tag:hover{background:var(--accent-l);color:var(--accent)}
+.cl-cat-sel-inline{font-size:9px;height:18px;margin-left:4px;border:1px solid var(--accent);border-radius:3px;background:var(--surface);color:var(--text);padding:0 2px}
 .cl-note-wrap{padding:3px 0 4px 24px;display:flex;flex-direction:column;gap:3px}
 .cl-ta{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 7px;font-size:12px;color:var(--text);font-family:inherit;resize:vertical;min-height:42px;box-sizing:border-box}
 .cl-ta:focus{outline:none;border-color:var(--accent)}
