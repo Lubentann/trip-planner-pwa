@@ -301,6 +301,9 @@ async function loadDB() {
   // Start real-time sync for the active project
   if (ap) { startWishlistSync(ap); startTripsSync(ap); }
 
+  // Opportunistic cleanup of expired invite codes (fire-and-forget)
+  cleanupExpiredInvites();
+
   if (!db.projects.length && !r.onboardDone) {
     setTimeout(() => om('m-onboard'), 400);
   } else if (!db.projects.length) {
@@ -365,49 +368,36 @@ function clRender(pid, container) {
     </button>
   </div>`;
 
-  // Group by category for display
-  const groups = {};
-  CL_CATS.forEach(c => { groups[c] = []; });
+  // Flat list — all items in one group, sorted globally by order/createdAt
+  html += `<div class="cl-group" data-cat="all">`;
   displayItems.forEach(item => {
-    const cat = item.category || '其他';
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(item);
+    const linkHtml = item.link
+      ? `<a class="cl-link" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" title="${esc(item.link)}">前往 ↗</a>`
+      : '';
+    let actionHtml = '';
+    actionHtml += `<button class="ib cl-note-btn" data-cid="${esc(item.id)}" title="備註"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+    if (item.isCustom) {
+      actionHtml += `<button class="ib del cl-del" data-cid="${esc(item.id)}" title="刪除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`;
+    }
+    const notePreview = item.note ? `<div class="cl-note-preview">${esc(item.note)}</div>` : '';
+    html += `
+      <div class="cl-item${item.isChecked?' cl-done':''}" data-cid="${esc(item.id)}" draggable="true">
+        <div class="cl-row">
+          <span class="drag-handle" title="拖曳排序"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity:.45"><circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
+          <label class="cl-lbl">
+            <input type="checkbox" class="cl-chk" data-cid="${esc(item.id)}"${item.isChecked?' checked':''}>
+            <span class="cl-name">${esc(item.name)}</span>${linkHtml}<span class="cl-cat-tag" data-cid="${esc(item.id)}">${esc(item.category || '其他')}</span>
+          </label>
+          <div class="cl-acts">${actionHtml}</div>
+        </div>
+        ${notePreview}
+        <div class="cl-note-wrap" id="cl-nw-${esc(item.id)}" style="display:none">
+          <textarea class="cl-ta" data-cid="${esc(item.id)}" placeholder="備註…" rows="2">${esc(item.note||'')}</textarea>
+          <button class="cl-save-note" data-cid="${esc(item.id)}">儲存</button>
+        </div>
+      </div>`;
   });
-
-  CL_CATS.forEach(cat => {
-    const items = groups[cat];
-    if (!items || !items.length) return;
-    html += `<div class="cl-cat">${esc(cat)}</div>`;
-    html += `<div class="cl-group" data-cat="${esc(cat)}">`;
-    items.forEach(item => {
-      const linkHtml = item.link
-        ? `<a class="cl-link" href="${esc(item.link)}" target="_blank" rel="noopener noreferrer" title="${esc(item.link)}">前往 ↗</a>`
-        : '';
-      let actionHtml = '';
-      actionHtml += `<button class="ib cl-note-btn" data-cid="${esc(item.id)}" title="備註"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
-      if (item.isCustom) {
-        actionHtml += `<button class="ib del cl-del" data-cid="${esc(item.id)}" title="刪除"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`;
-      }
-      const notePreview = item.note ? `<div class="cl-note-preview">${esc(item.note)}</div>` : '';
-      html += `
-        <div class="cl-item${item.isChecked?' cl-done':''}" data-cid="${esc(item.id)}" draggable="true">
-          <div class="cl-row">
-            <span class="drag-handle" title="拖曳排序"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity:.45"><circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
-            <label class="cl-lbl">
-              <input type="checkbox" class="cl-chk" data-cid="${esc(item.id)}"${item.isChecked?' checked':''}>
-              <span class="cl-name">${esc(item.name)}</span>${linkHtml}
-            </label>
-            <div class="cl-acts">${actionHtml}</div>
-          </div>
-          ${notePreview}
-          <div class="cl-note-wrap" id="cl-nw-${esc(item.id)}" style="display:none">
-            <textarea class="cl-ta" data-cid="${esc(item.id)}" placeholder="備註…" rows="2">${esc(item.note||'')}</textarea>
-            <button class="cl-save-note" data-cid="${esc(item.id)}">儲存</button>
-          </div>
-        </div>`;
-    });
-    html += `</div>`;
-  });
+  html += `</div>`;
 
   const catOpts = CL_CATS.map(c=>`<option value="${c}">${c}</option>`).join('');
   html += `<div class="cl-add-row">
@@ -524,58 +514,94 @@ function clBind(pid, container) {
   if (addBtn) addBtn.addEventListener('click', doAdd);
   if (addInp) addInp.addEventListener('keydown', e => { if (e.key==='Enter') doAdd(); });
 
-  // ── Drag-and-Drop (HTML5 mouse + Pointer/Touch for mobile) ───────────────
-  container.querySelectorAll('.cl-group').forEach(group => {
-    let dragSrc = null;   // currently dragged .cl-item element
-    let touchDragSrc = null;
-    let touchPlaceholder = null;
+  // ── Category tag click-to-edit ────────────────────────────────────────────
+  container.querySelectorAll('.cl-cat-tag').forEach(tag => {
+    tag.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const cid = tag.dataset.cid;
+      const sel = document.createElement('select');
+      sel.className = 'cl-cat-sel-inline';
+      CL_CATS.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        if (c === tag.textContent.trim()) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      tag.replaceWith(sel);
+      sel.focus();
+      const finish = async () => {
+        const newCat = sel.value;
+        const newTag = document.createElement('span');
+        newTag.className = 'cl-cat-tag';
+        newTag.dataset.cid = cid;
+        newTag.textContent = newCat;
+        sel.replaceWith(newTag);
+        if (_clCache[pid][cid]) _clCache[pid][cid].category = newCat;
+        await window.clApiPatch(pid, { [`${cid}/category`]: newCat });
+      };
+      sel.addEventListener('change', finish);
+      sel.addEventListener('blur', finish);
+    });
+  });
 
-    // ── HTML5 drag events (desktop) ──────────────────────────────────────
+  // ── Drag-and-Drop (Lift-and-Place with placeholder) ─────────────────────
+  container.querySelectorAll('.cl-group').forEach(group => {
+    let dragSrc = null;
+    let placeholder = null;
+    let touchDragSrc = null;
+
+    function getPlaceholder(h) {
+      if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.className = 'cl-placeholder';
+      }
+      placeholder.style.height = (h || 32) + 'px';
+      return placeholder;
+    }
+    function removePlaceholder() { if (placeholder && placeholder.parentNode) placeholder.remove(); }
+
+    // ── HTML5 drag events (desktop) — placeholder model ──────────────────
     group.querySelectorAll('.cl-item').forEach(item => {
       item.addEventListener('dragstart', e => {
         dragSrc = item;
         item.classList.add('cl-dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', item.dataset.cid);
+        const ph = getPlaceholder(item.offsetHeight);
+        requestAnimationFrame(() => item.after(ph));
       });
       item.addEventListener('dragend', () => {
         item.classList.remove('cl-dragging');
-        group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
+        if (placeholder && placeholder.parentNode === group) {
+          group.insertBefore(dragSrc, placeholder);
+        }
+        removePlaceholder();
         dragSrc = null;
+        clPersistOrder(pid, group, window.clApiPatch);
       });
       item.addEventListener('dragover', e => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (item !== dragSrc) {
-          group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
-          item.classList.add('cl-drag-over');
+        if (!dragSrc || item === dragSrc) return;
+        const ph = getPlaceholder();
+        const rect = item.getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2) {
+          if (item.previousSibling !== ph) group.insertBefore(ph, item);
+        } else {
+          if (item.nextSibling !== ph) item.after(ph);
         }
       });
-      item.addEventListener('drop', e => {
-        e.preventDefault();
-        if (!dragSrc || dragSrc === item) return;
-        item.classList.remove('cl-drag-over');
-        // Reorder DOM within group
-        const items = [...group.querySelectorAll('.cl-item')];
-        const fromIdx = items.indexOf(dragSrc);
-        const toIdx   = items.indexOf(item);
-        if (fromIdx === toIdx) return;
-        if (toIdx > fromIdx) item.after(dragSrc);
-        else item.before(dragSrc);
-        clPersistOrder(pid, group, window.clApiPatch);
-      });
+      item.addEventListener('drop', e => e.preventDefault());
     });
 
-    // ── Touch/Pointer events (mobile PWA) ─────────────────────────────────
+    // ── Touch/Pointer events (mobile) — placeholder model ────────────────
     group.querySelectorAll('.drag-handle').forEach(handle => {
       handle.addEventListener('touchstart', e => {
         touchDragSrc = handle.closest('.cl-item');
         touchDragSrc.classList.add('cl-dragging');
-        // Create visual placeholder
-        touchPlaceholder = document.createElement('div');
-        touchPlaceholder.className = 'cl-placeholder';
-        touchPlaceholder.style.height = touchDragSrc.offsetHeight + 'px';
-        touchDragSrc.after(touchPlaceholder);
+        const ph = getPlaceholder(touchDragSrc.offsetHeight);
+        touchDragSrc.after(ph);
       }, { passive: true });
 
       handle.addEventListener('touchmove', e => {
@@ -585,26 +611,20 @@ function clBind(pid, container) {
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
         const overItem = target?.closest('.cl-item');
         if (overItem && overItem !== touchDragSrc && overItem.closest('.cl-group') === group) {
-          group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
-          overItem.classList.add('cl-drag-over');
-          // Move placeholder to indicate drop target
-          const items = [...group.querySelectorAll('.cl-item:not(.cl-dragging)')];
-          const touchY = touch.clientY;
-          const rect   = overItem.getBoundingClientRect();
-          if (touchY < rect.top + rect.height / 2) overItem.before(touchPlaceholder);
-          else overItem.after(touchPlaceholder);
+          const ph = getPlaceholder();
+          const rect = overItem.getBoundingClientRect();
+          if (touch.clientY < rect.top + rect.height / 2) overItem.before(ph);
+          else overItem.after(ph);
         }
       }, { passive: false });
 
-      handle.addEventListener('touchend', e => {
+      handle.addEventListener('touchend', () => {
         if (!touchDragSrc) return;
         touchDragSrc.classList.remove('cl-dragging');
-        group.querySelectorAll('.cl-item').forEach(i => i.classList.remove('cl-drag-over'));
-        // Insert dragged item where placeholder is
-        if (touchPlaceholder && touchPlaceholder.parentNode === group) {
-          group.insertBefore(touchDragSrc, touchPlaceholder);
+        if (placeholder && placeholder.parentNode === group) {
+          group.insertBefore(touchDragSrc, placeholder);
         }
-        if (touchPlaceholder) { touchPlaceholder.remove(); touchPlaceholder = null; }
+        removePlaceholder();
         clPersistOrder(pid, group, window.clApiPatch);
         touchDragSrc = null;
       });
@@ -2488,6 +2508,28 @@ function _isCodeValid(entry) {
 }
 
 // ── Owner flow: open invite modal ────────────────────────────
+
+// ── Invite code cleanup (opportunistic, fire-and-forget) ──────────────────
+async function cleanupExpiredInvites() {
+  try {
+    if (!window.listInviteCodes) return;
+    const codes = await window.listInviteCodes();
+    if (!codes) return;
+    const now = Date.now();
+    const TTL = 86400000; // 24 hours
+    const expired = [];
+    Object.entries(codes).forEach(([code, val]) => {
+      const entry = typeof val === 'string' ? (() => { try { return JSON.parse(val); } catch { return null; } })() : val;
+      if (!entry || !entry.createdAt || (now - entry.createdAt) > TTL) {
+        expired.push(code);
+      }
+    });
+    if (expired.length) {
+      console.log(`[cleanup] Removing ${expired.length} expired invite code(s)`);
+      await Promise.all(expired.map(c => window.deleteInviteCode(c)));
+    }
+  } catch(e) { console.warn('[cleanup] invite code cleanup failed', e); }
+}
 
 function openInviteModal() {
   if (!ap) { showToast('⚠️ Please select a project first.'); return; }
