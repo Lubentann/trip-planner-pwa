@@ -113,6 +113,7 @@ const IC = {
   sheet:     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
   download:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
   pinSmall:  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>',
+  plus:      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
 };
 
 // ── 準備清單常數 ──────────────────────────────────────────────────────────────
@@ -737,16 +738,16 @@ function renderDD() {
   const footer = `
     <div class="pi-footer" style="display:flex;gap:1px;background:var(--border);border-top:1px solid var(--border);margin-top:${hasProjects ? '4px' : '0'}">
       <div class="pi-action-row" id="dd-add-proj" style="flex:1;justify-content:center;background:var(--surface)">
-        <span class="pi-action-icon" style="font-size:15px;font-weight:700;color:var(--accent)">+</span>
-        <span>新增</span>
+        <span class="pi-action-icon">${IC.plus}</span>
+        <span>新增旅遊</span>
       </div>
       <div class="pi-action-row" id="dd-share-proj" ${shareDisabled}>
         <span class="pi-action-icon">${IC.share}</span>
-        <span>分享專案</span>
+        <span>邀請旅遊</span>
       </div>
       <div class="pi-action-row" id="dd-join-proj" style="flex:1;justify-content:center;background:var(--surface)">
         <span class="pi-action-icon">${IC.people}</span>
-        <span>加入專案</span>
+        <span>加入旅遊</span>
       </div>
     </div>`;
 
@@ -1259,6 +1260,50 @@ function initDragSort(list, dateStr) {
 
   list.addEventListener('dragleave', e => {
     if (!list.contains(e.relatedTarget)) { hideIndicator(); targetCard = null; }
+  });
+
+  // ── Touch drag (mobile) — drag-handle and vc-name-wrap ─────────────────
+  let touchDragCard = null, touchTarget = null, touchInsertBefore = true;
+  list.querySelectorAll('.trip-card').forEach(card => {
+    const handles = card.querySelectorAll('.drag-handle, .vc-name-wrap');
+    handles.forEach(handle => {
+      handle.addEventListener('touchstart', () => {
+        touchDragCard = card;
+        _isDragging = true;
+        card.classList.add('dragging');
+      }, { passive: true });
+
+      handle.addEventListener('touchmove', e => {
+        if (!touchDragCard) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const overCard = el?.closest('.trip-card');
+        if (overCard && overCard !== touchDragCard) {
+          touchTarget = overCard;
+          const rect = overCard.getBoundingClientRect();
+          const listRect = list.getBoundingClientRect();
+          touchInsertBefore = touch.clientY < rect.top + rect.height / 2;
+          const ind = getIndicator();
+          ind.style.top = ((touchInsertBefore ? rect.top : rect.bottom) - listRect.top - 1.5) + 'px';
+        }
+      }, { passive: false });
+
+      handle.addEventListener('touchend', async () => {
+        if (!touchDragCard) return;
+        touchDragCard.classList.remove('dragging');
+        _isDragging = false;
+        hideIndicator();
+        if (touchTarget && touchTarget !== touchDragCard) {
+          if (touchInsertBefore) list.insertBefore(touchDragCard, touchTarget);
+          else touchTarget.insertAdjacentElement('afterend', touchDragCard);
+        }
+        touchDragCard = null; touchTarget = null;
+        const newOrder = [...list.querySelectorAll('.trip-card')].map(c => c.dataset.tripId);
+        newOrder.forEach((id, i) => { const t = (db.trips[ap] || []).find(x => x.id === id); if (t) t.order = i; });
+        await Promise.all(newOrder.map((id, i) => window.projMerge(ap, `trips/${id}`, { order: i })));
+      });
+    });
   });
 }
 
