@@ -207,7 +207,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .drag-ghost{position:fixed;z-index:1000;pointer-events:none;opacity:.65;border-radius:var(--rl);box-shadow:0 4px 16px rgba(0,0,0,.15)}
 .drag-ghost.cl-ghost{border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .drag-target{position:relative}
-.drag-target::after{content:'';position:absolute;inset:0;border:2px dashed var(--accent);background:var(--accent-l);border-radius:var(--rl);z-index:5;pointer-events:none}
+.drag-target::after{content:'';position:absolute;inset:0;border:2px dashed var(--accent);background:transparent;border-radius:var(--rl);z-index:5;pointer-events:none}
 .cl-item.drag-target::after{border-radius:4px}
 .onboard-step{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border)}
 .onboard-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
@@ -683,32 +683,32 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 <!-- Modal: Invite Partner (Owner flow) -->
 <div class="mwrap" id="m-invite">
   <div class="modal">
-    <div class="mtitle"><span>Invite Partner</span><button class="mclose" id="mc-invite">✕</button></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Share this code with your travel partner. It expires in <strong>24 hours</strong>.</div>
-    <div class="f"><label>Project</label>
+    <div class="mtitle"><span>邀請旅遊</span><button class="mclose" id="mc-invite">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">將邀請碼分享給您的旅遊夥伴，代碼有效期限為 <strong>24 小時</strong>。</div>
+    <div class="f"><label>專案名稱</label>
       <div id="invite-proj-name" style="font-size:13px;font-weight:500;color:var(--text);padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)">—</div>
     </div>
-    <div class="f"><label>Invite Code</label>
+    <div class="f"><label>邀請碼</label>
       <div style="display:flex;gap:6px;align-items:center">
         <div id="invite-code-display" style="flex:1;font-size:22px;font-weight:700;letter-spacing:4px;text-align:center;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--accent);font-family:monospace">——————</div>
-        <button id="btn-copy-invite" style="flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:12px 14px;font-size:12px;font-weight:600;cursor:pointer">Copy</button>
+        <button id="btn-copy-invite" style="flex-shrink:0;background:var(--accent);color:#fff;border:none;border-radius:var(--r);padding:12px 14px;font-size:12px;font-weight:600;cursor:pointer">複製</button>
       </div>
     </div>
     <div id="invite-status" style="font-size:11px;color:var(--text3);text-align:center;margin-top:4px;min-height:16px"></div>
-    <button class="bprimary" id="btn-gen-invite" style="margin-top:8px">Generate New Code</button>
+    <button class="bprimary" id="btn-gen-invite" style="margin-top:8px">產生新代碼</button>
   </div>
 </div>
 
 <!-- Modal: Join Project (Guest flow) -->
 <div class="mwrap" id="m-join">
   <div class="modal">
-    <div class="mtitle"><span>Join a Project</span><button class="mclose" id="mc-join">✕</button></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">Ask your travel partner to share their invite code, then enter it below.</div>
-    <div class="f"><label>Invite Code</label>
-      <input id="join-code-input" placeholder="e.g. AB12CD" style="text-transform:uppercase;letter-spacing:3px;font-size:16px;font-weight:600;font-family:monospace;text-align:center" maxlength="6">
+    <div class="mtitle"><span>加入旅遊</span><button class="mclose" id="mc-join">✕</button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6">請向旅遊夥伴索取邀請碼，輸入後即可加入共同編輯。</div>
+    <div class="f"><label>邀請碼</label>
+      <input id="join-code-input" placeholder="例：AB12CD" style="text-transform:uppercase;letter-spacing:3px;font-size:16px;font-weight:600;font-family:monospace;text-align:center" maxlength="6">
     </div>
     <div id="join-status" style="font-size:12px;min-height:18px;margin-bottom:8px;text-align:center"></div>
-    <button class="bprimary" id="btn-join-confirm">Join Project</button>
+    <button class="bprimary" id="btn-join-confirm">確認加入</button>
   </div>
 </div>
 
