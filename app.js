@@ -1672,7 +1672,7 @@ function _scheduleTripsRender() {
 function openNewProj() {
   if (db.projects.length >= 3) { showToast('已達專案上限（最多 3 個）'); return; }
   eid = null;
-  $('mpt').textContent = '新旅遊';
+  $('mpt').textContent = '新增旅遊';
   ['pi-name','pi-dest','pi-s','pi-e'].forEach(i => $(i).value = '');
   sc = '#2d6a4f';
   document.querySelectorAll('.copt').forEach(o => o.classList.toggle('sel', o.dataset.c === sc));
@@ -1741,17 +1741,17 @@ function delProj(id) {
   $('del-proj-name').textContent = p.name;
 
   if (isOwner) {
-    if (titleEl)    titleEl.textContent = 'Delete Project';
-    if (descEl)     descEl.textContent  = 'This cannot be undone. All destinations, itineraries, and data for this project will be permanently deleted.';
+    if (titleEl)    titleEl.textContent = '刪除專案';
+    if (descEl)     descEl.textContent  = '此操作無法復原。專案中所有地點、行程及資料將被永久刪除。';
     if (confirmRow) confirmRow.style.display = '';
     $('del-proj-confirm-input').value = '';
-    btn.textContent = 'Confirm Delete';
+    btn.textContent = '確認刪除';
     btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed';
   } else {
-    if (titleEl)    titleEl.textContent = 'Leave Project';
-    if (descEl)     descEl.textContent  = 'You will lose access to this project. The project and its data will remain intact for the owner and other members.';
+    if (titleEl)    titleEl.textContent = '退出專案';
+    if (descEl)     descEl.textContent  = '退出後將無法存取此專案，但專案資料會保留給擁有者及其他成員。';
     if (confirmRow) confirmRow.style.display = 'none';
-    btn.textContent = 'Leave Project';
+    btn.textContent = '確認退出';
     btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
     btn.style.background = 'var(--accent)';
   }
@@ -1783,7 +1783,7 @@ async function execDelProj() {
   // Restart sync for the new active project (or stop if none)
   if (ap) { startWishlistSync(ap); startTripsSync(ap); }
   else    { stopWishlistSync(); stopTripsSync(); }
-  showToast(isOwner ? '🗑️ Project deleted.' : '👋 You have left the project.');
+  showToast(isOwner ? '🗑️ 專案已刪除' : '👋 已退出專案');
 }
 
 // =============================================================
@@ -2047,7 +2047,7 @@ async function saveSched() {
     const [,m,dd] = d.split('-').map(Number);
     return idx >= 0 ? `Day ${idx+1}（${m}/${dd}）` : d;
   }).join('、');
-  showToast(`✅ 已排入 ${dayLabels}`);
+  setTimeout(() => showToast(`✅ 已排入 ${dayLabels}`), 350);
 }
 
 // =============================================================
@@ -2558,7 +2558,7 @@ function openInviteModal() {
   $('invite-code-display').textContent = '——————';
   $('invite-status').textContent = '';
   $('btn-gen-invite').disabled = false;
-  $('btn-gen-invite').textContent = 'Generate New Code';
+  $('btn-gen-invite').textContent = '產生新代碼';
 
   const authMenu = $('auth-menu');
   if (authMenu) authMenu.style.display = 'none';
@@ -2571,7 +2571,7 @@ async function generateInviteCode() {
   const btn = $('btn-gen-invite');
   const statusEl = $('invite-status');
   btn.disabled = true;
-  btn.textContent = 'Generating…';
+  btn.textContent = '產生中…';
   statusEl.textContent = '';
 
   const code = _genCode();
@@ -2579,24 +2579,24 @@ async function generateInviteCode() {
 
   if (ok) {
     $('invite-code-display').textContent = code;
-    statusEl.textContent = 'Code valid for 24 hours.';
+    statusEl.textContent = '代碼有效期限 24 小時';
     statusEl.style.color = 'var(--text3)';
   } else {
-    statusEl.textContent = '⚠️ Failed to generate code. Please try again.';
+    statusEl.textContent = '⚠️ 產生失敗，請重試';
     statusEl.style.color = 'var(--coral)';
   }
-  btn.textContent = 'Generate New Code';
+  btn.textContent = '產生新代碼';
   btn.disabled = false;
 }
 
 async function copyInviteCode() {
   const code = $('invite-code-display').textContent.trim();
-  if (!code || code.includes('—')) { showToast('Generate a code first.'); return; }
+  if (!code || code.includes('—')) { showToast('請先產生邀請碼'); return; }
   try {
     await navigator.clipboard.writeText(code);
-    showToast('✅ Code copied!');
+    showToast('✅ 已複製邀請碼');
   } catch {
-    showToast('⚠️ Could not copy. Please copy manually: ' + code);
+    showToast('⚠️ 無法複製，請手動複製：' + code);
   }
 }
 
@@ -2607,7 +2607,7 @@ function openJoinModal() {
   $('join-status').textContent = '';
   $('join-status').style.color = 'var(--text3)';
   $('btn-join-confirm').disabled = false;
-  $('btn-join-confirm').textContent = 'Join Project';
+  $('btn-join-confirm').textContent = '確認加入';
 
   const authMenu = $('auth-menu');
   if (authMenu) authMenu.style.display = 'none';
@@ -2621,30 +2621,30 @@ async function joinProject() {
   const btn = $('btn-join-confirm');
 
   if (rawCode.length !== 6) {
-    statusEl.textContent = 'Please enter a 6-character code.';
+    statusEl.textContent = '請輸入 6 位邀請碼';
     statusEl.style.color = 'var(--coral)';
     return;
   }
 
   btn.disabled = true;
-  btn.textContent = 'Joining…';
-  statusEl.textContent = 'Looking up code…';
+  btn.textContent = '加入中…';
+  statusEl.textContent = '查詢邀請碼…';
   statusEl.style.color = 'var(--text3)';
 
   // 1. Read the invite code
   const entry = await window.readInviteCode(rawCode);
   if (!entry || !entry.pid) {
-    statusEl.textContent = '⚠️ Invalid code. Please check and try again.';
+    statusEl.textContent = '⚠️ 邀請碼無效，請確認後重試';
     statusEl.style.color = 'var(--coral)';
-    btn.disabled = false; btn.textContent = 'Join Project';
+    btn.disabled = false; btn.textContent = '確認加入';
     return;
   }
 
   // 2. Check 24h TTL
   if (!_isCodeValid(entry)) {
-    statusEl.textContent = '⚠️ This code has expired. Ask your partner for a new one.';
+    statusEl.textContent = '⚠️ 邀請碼已過期，請向夥伴索取新代碼';
     statusEl.style.color = 'var(--coral)';
-    btn.disabled = false; btn.textContent = 'Join Project';
+    btn.disabled = false; btn.textContent = '確認加入';
     return;
   }
 
@@ -2653,9 +2653,9 @@ async function joinProject() {
   // 3. Check the user is not already a member
   const existing = db.projects.find(p => p.id === pid);
   if (existing) {
-    statusEl.textContent = `✅ You're already in "${existing.name}".`;
+    statusEl.textContent = `✅ 您已經是「${existing.name}」的成員`;
     statusEl.style.color = 'var(--accent)';
-    btn.disabled = false; btn.textContent = 'Join Project';
+    btn.disabled = false; btn.textContent = '確認加入';
     return;
   }
 
@@ -2663,26 +2663,25 @@ async function joinProject() {
   if (db.projects.length >= 3) {
     statusEl.textContent = '已達專案上限（最多 3 個）';
     statusEl.style.color = 'var(--coral)';
-    btn.disabled = false; btn.textContent = 'Join Project';
+    btn.disabled = false; btn.textContent = '確認加入';
     return;
   }
 
   // 4. Resolve current user
   const user = getCurrentUser();
   if (!user) {
-    statusEl.textContent = '⚠️ Not logged in. Please sign in first.';
+    statusEl.textContent = '⚠️ 尚未登入，請先登入';
     statusEl.style.color = 'var(--coral)';
-    btn.disabled = false; btn.textContent = 'Join Project';
+    btn.disabled = false; btn.textContent = '確認加入';
     return;
   }
 
   // 5. Write self into /projects/${pid}/members/${uid}
-  //    Allowed by Firebase Rules: auth.uid == $memberUid && !data.exists()
   const memberOk = await window.projPatch(pid, `members/${user.uid}`, { role: 'member', nickname: '' });
   if (!memberOk) {
-    statusEl.textContent = '⚠️ Could not join the project. Please try again or contact the owner.';
+    statusEl.textContent = '⚠️ 無法加入專案，請重試或聯繫擁有者';
     statusEl.style.color = 'var(--coral)';
-    btn.disabled = false; btn.textContent = 'Join Project';
+    btn.disabled = false; btn.textContent = '確認加入';
     return;
   }
 
@@ -2690,7 +2689,7 @@ async function joinProject() {
   await window.userProjectsAdd(pid);
 
   // 8. Reload DB so the new project appears immediately
-  statusEl.textContent = '✅ Joined! Loading project…';
+  statusEl.textContent = '✅ 已加入！載入專案中…';
   statusEl.style.color = 'var(--accent)';
 
   const cloud = await window.fbRead();
