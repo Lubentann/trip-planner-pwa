@@ -51,6 +51,38 @@
   window.__inAppBrowserBlocked = true;
 })();
 
+// ── Stage 2 & 3: A2HS prompt / Standalone detection ──
+(function detectInstallState() {
+  if (window.__inAppBrowserBlocked) return; // Stage 1 already handled
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (isStandalone) return; // Stage 3: already installed, skip
+  if (sessionStorage.getItem('a2hs-dismissed')) return; // already dismissed this session
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const overlay = document.createElement('div');
+    overlay.id = 'pwa-install-prompt';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:var(--bg,#f7f6f2);color:var(--text,#1a1916);font-family:-apple-system,sans-serif';
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    overlay.innerHTML = `
+      <div style="font-size:40px">📲</div>
+      <div style="font-size:17px;font-weight:600">加到主畫面，使用更流暢</div>
+      <div style="font-size:13px;color:var(--text2,#6b6a62);max-width:300px;line-height:1.8">
+        將此應用加到主畫面後，可以像原生 App 一樣全螢幕使用，啟動更快、體驗更好。
+      </div>
+      <div style="background:var(--surface2,#f0efe9);border:1px solid var(--border,#e2e0d8);border-radius:10px;padding:14px 16px;max-width:300px;text-align:left;font-size:13px;line-height:2">
+        ${isIOS
+          ? '<div>① 點擊底部的分享按鈕 <span style="color:var(--accent,#2d6a4f)">⬆️</span></div><div>② 選擇「加入主畫面」</div>'
+          : '<div>① 點擊右上角選單 <b>⋮</b></div><div>② 選擇「加到主畫面」</div>'}
+      </div>
+      <button id="a2hs-dismiss" style="background:none;border:1px solid var(--border,#e2e0d8);border-radius:8px;padding:10px 24px;font-size:13px;color:var(--text2,#6b6a62);cursor:pointer;margin-top:6px">略過，繼續使用網頁版</button>`;
+    document.body.appendChild(overlay);
+    document.getElementById('a2hs-dismiss').onclick = () => {
+      overlay.remove();
+      sessionStorage.setItem('a2hs-dismissed', '1');
+    };
+  });
+})();
+
 window.chromeShim = {
   storage: {
     local: {
@@ -304,6 +336,11 @@ async function loadDB() {
 
   // Opportunistic cleanup of expired invite codes (fire-and-forget)
   cleanupExpiredInvites();
+
+  // Auto-launch tour for first-time users
+  if (!localStorage.getItem('tourDone') && db.projects.length > 0) {
+    setTimeout(() => startTour(), 600);
+  }
 
   if (!db.projects.length && !r.onboardDone) {
     setTimeout(() => om('m-onboard'), 400);
@@ -2304,6 +2341,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Bottom bar
   on('btn-nav-route',  'click', openRouteNav);
   on('btn-open-export','click', openExport);
+  on('btn-tour-replay','click', () => { const m=$('auth-menu'); if(m) m.style.display='none'; startTour(); });
+  on('tour-next', 'click', nextTourStep);
+  on('tour-prev', 'click', prevTourStep);
+  on('tour-skip', 'click', () => endTour(false));
 
   // Travel mode（事件委派）
   document.addEventListener('click', e => {
@@ -2526,6 +2567,147 @@ function _isCodeValid(entry) {
 }
 
 // ── Owner flow: open invite modal ────────────────────────────
+
+// =============================================================
+//  PWA Onboarding Tour (11 steps)
+// =============================================================
+
+const PWA_TOUR_STEPS = [
+  { title: '歡迎使用旅程規劃！',
+    descHtml: '<p style="margin:0 0 8px">這是你的行動旅遊規劃工具，可以在手機上隨時管理地點、安排行程。</p><p style="margin:0">接下來帶你快速認識核心功能。</p>' },
+  { title: '首頁：掌握旅程全局',
+    target: '#pg-home',
+    descHtml: '<p style="margin:0">首頁顯示專案的出發日期、天數概覽，以及地點和行程的統計摘要。</p>' },
+  { title: '專案切換與管理',
+    target: '.dd-toggle',
+    descHtml: '<p style="margin:0 0 8px">點這裡切換不同旅遊專案。</p><p style="margin:0">底部可以新增旅遊、邀請夥伴協作、或輸入邀請碼加入他人的專案。</p>' },
+  { title: '準備清單：新增自訂項目',
+    target: '.cl-add-row', tabSwitch: 'cl',
+    descHtml: '<p style="margin:0">選擇分類、輸入項目名稱，按 + 即可新增。打勾代表已完成準備。</p>' },
+  { title: '準備清單：購買連結',
+    target: '.cl-link', tabSwitch: 'cl',
+    descHtml: '<p style="margin:0">部分項目旁有「前往 ↗」按鈕，點擊即可直接前往購買網卡、票券等旅行必備品。</p>' },
+  { title: '地點清單：收藏感興趣的地點',
+    target: '#tab-wish', tabSwitch: 'wish',
+    descHtml: '<p style="margin:0 0 8px">這裡集中管理所有想去的地方。可以按類別篩選、搜尋，也能排序找出最想去的。</p><p style="margin:0">準備排行程時，勾選地點再點「加入行程」。</p>' },
+  { title: '地點卡片操作',
+    target: '.wish-card', tabSwitch: 'wish',
+    descHtml: '<p style="margin:0 0 8px">每個地點卡片上有三個快速操作：</p><div style="display:grid;grid-template-columns:24px 1fr;gap:2px 8px;align-items:center"><span>♥</span><span>收藏 — 標記最想去的地點</span><span>✏️</span><span>編輯 — 修改名稱、類別、備註</span><span>🗑️</span><span>刪除 — 移除這個地點</span></div>' },
+  { title: '行程安排：每日時間軸',
+    target: '#tab-timeline', tabSwitch: 'timeline',
+    descHtml: '<p style="margin:0 0 8px">從地點清單加入地點後，在這裡設定出發時間與停留時長。</p><p style="margin:0">拖曳卡片可重新排序，點擊上方日期列可切換不同天。</p>' },
+  { title: '行程卡片操作',
+    target: '.trip-card', tabSwitch: 'timeline',
+    descHtml: '<p style="margin:0 0 8px">每張行程卡片提供四個操作：</p><div style="display:grid;grid-template-columns:24px 1fr;gap:2px 8px;align-items:center"><span>⠿</span><span>拖曳 — 長按後上下移動可排序</span><span>♥</span><span>收藏 — 同步更新地點清單的收藏</span><span>✏️</span><span>編輯 — 調整時間與停留時長</span><span>🗑️</span><span>刪除 — 從今日行程移除</span></div>' },
+  { title: '今日路線導航',
+    target: '#btn-nav-route', tabSwitch: 'timeline',
+    descHtml: '<p style="margin:0">點擊可開啟 Google Maps 導航，依照行程順序規劃最佳路線。</p>' },
+  { title: '導覽完成！開始規劃旅程',
+    descHtml: '<p style="margin:0 0 8px">你已經了解所有核心功能。</p><p style="margin:0">想再看一次？點擊個人選單中的「教學導覽」即可重新播放。</p>',
+    isLast: true },
+];
+
+let tourActive = false, tourStep = 0;
+
+function startTour() {
+  tourActive = true;
+  tourStep = 0;
+  renderTourStep();
+}
+
+function endTour(completed = false) {
+  tourActive = false;
+  const overlay = document.getElementById('tour-overlay');
+  if (overlay) overlay.classList.remove('active');
+  const spotlight = document.getElementById('tour-spotlight');
+  if (spotlight) spotlight.style.cssText = '';
+  if (completed) localStorage.setItem('tourDone', '1');
+}
+
+function getTourTargetRect(selector) {
+  if (!selector) return null;
+  const el = document.querySelector(selector);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 };
+}
+
+function renderTourStep() {
+  const step = PWA_TOUR_STEPS[tourStep];
+  const overlay = document.getElementById('tour-overlay');
+  const spotlight = document.getElementById('tour-spotlight');
+  const bubble = document.getElementById('tour-bubble');
+  if (!overlay || !spotlight || !bubble) return;
+
+  // Tab auto-switch
+  if (step.tabSwitch) showTab(step.tabSwitch);
+
+  overlay.classList.add('active');
+
+  // Progress
+  const progressEl = document.getElementById('tour-progress');
+  if (progressEl) {
+    const pct = PWA_TOUR_STEPS.length > 1 ? (tourStep / (PWA_TOUR_STEPS.length - 1)) * 100 : 100;
+    progressEl.style.width = pct + '%';
+  }
+  document.getElementById('tour-step-label').textContent = `步驟 ${tourStep + 1} / ${PWA_TOUR_STEPS.length}`;
+  document.getElementById('tour-title').textContent = step.title;
+  const descEl = document.getElementById('tour-desc');
+  if (step.descHtml) { descEl.style.whiteSpace = ''; descEl.innerHTML = step.descHtml; }
+  else { descEl.style.whiteSpace = 'pre-line'; descEl.textContent = step.desc || ''; }
+
+  // Prev/Skip/Next buttons
+  const prevBtn = document.getElementById('tour-prev');
+  const skipBtn = document.getElementById('tour-skip');
+  const nextBtn = document.getElementById('tour-next');
+  if (prevBtn) prevBtn.style.display = tourStep > 0 ? '' : 'none';
+  if (skipBtn) skipBtn.style.display = step.isLast ? 'none' : '';
+  if (nextBtn) nextBtn.textContent = step.isLast ? '開始使用' : '下一步';
+
+  // Spotlight positioning
+  requestAnimationFrame(() => {
+    const rect = getTourTargetRect(step.target);
+    if (rect) {
+      spotlight.style.cssText = `top:${rect.top}px;left:${rect.left}px;width:${rect.width}px;height:${rect.height}px;display:block`;
+      document.getElementById('tour-mask').style.display = 'none';
+    } else {
+      document.getElementById('tour-mask').style.display = 'block';
+      spotlight.style.cssText = 'display:none';
+    }
+
+    // Bubble positioning
+    requestAnimationFrame(() => {
+      const bRect = bubble.getBoundingClientRect();
+      const vH = window.innerHeight;
+      const vW = window.innerWidth;
+      const M = 10;
+      let top, left;
+      if (rect) {
+        const belowTop = rect.top + rect.height + 10;
+        const aboveTop = rect.top - bRect.height - 10;
+        if (belowTop + bRect.height < vH - M) top = belowTop;
+        else if (aboveTop >= M) top = aboveTop;
+        else top = Math.max(M, Math.round((vH - bRect.height) / 2));
+        left = Math.max(M, Math.min(rect.left, vW - bRect.width - M));
+      } else {
+        top = Math.max(M, Math.round((vH - bRect.height) / 2));
+        left = Math.max(M, Math.round((vW - bRect.width) / 2));
+      }
+      top  = Math.min(top,  vH - bRect.height - M);
+      left = Math.min(left, vW - bRect.width  - M);
+      bubble.style.top  = `${Math.max(M, top)}px`;
+      bubble.style.left = `${Math.max(M, left)}px`;
+    });
+  });
+}
+
+function nextTourStep() {
+  if (tourStep < PWA_TOUR_STEPS.length - 1) { tourStep++; renderTourStep(); }
+  else endTour(true);
+}
+function prevTourStep() {
+  if (tourStep > 0) { tourStep--; renderTourStep(); }
+}
 
 // ── Invite code cleanup (opportunistic, fire-and-forget) ──────────────────
 async function cleanupExpiredInvites() {
