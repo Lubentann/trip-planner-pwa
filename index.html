@@ -380,6 +380,22 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .cl-new-inp{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0 8px;font-size:12px;color:var(--text);font-family:inherit}
 .cl-new-inp:focus{outline:none;border-color:var(--accent)}
 .cl-add-btn{width:32px;padding:0;display:flex;justify-content:center;align-items:center;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0}
+#tour-overlay{position:fixed;inset:0;z-index:9000;pointer-events:none;transition:opacity .25s;display:none}
+#tour-overlay.active{pointer-events:all;display:block}
+#tour-mask{position:absolute;inset:0;background:rgba(0,0,0,0.58)}
+#tour-spotlight{position:absolute;border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,0.58);transition:all .28s cubic-bezier(.4,0,.2,1);pointer-events:none}
+#tour-bubble{position:absolute;background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--rl);padding:14px 16px;width:min(280px,90vw);z-index:9001;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:all .28s cubic-bezier(.4,0,.2,1)}
+#tour-bubble .tb-step{font-size:10px;font-weight:500;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+#tour-bubble .tb-progress-wrap{flex:1;margin-left:12px;height:4px;background:var(--border2);border-radius:2px;overflow:hidden}
+#tour-bubble .tb-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease}
+#tour-bubble .tb-title{font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text)}
+#tour-bubble .tb-desc{font-size:11px;color:var(--text2);line-height:1.55;margin-bottom:10px}
+#tour-bubble .tb-desc p{margin:0 0 5px}
+#tour-bubble .tb-desc div[style*='grid'] span{line-height:1.4;display:inline-flex;align-items:center;min-height:20px}
+#tour-bubble .tb-actions{display:flex;gap:6px;justify-content:flex-end;margin-top:12px;align-items:center}
+#tour-bubble .tb-prev{font-size:12px;padding:8px 12px;border-radius:6px;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer}
+#tour-bubble .tb-skip{font-size:12px;padding:8px 12px;border-radius:6px;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer}
+#tour-bubble .tb-next{font-size:12px;padding:8px 16px;border-radius:6px;background:var(--accent);border:none;color:#fff;cursor:pointer;font-weight:500}
 </style>
 </head>
 <body>
@@ -405,6 +421,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
     <div id="auth-menu" style="display:none;position:absolute;right:14px;top:42px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:50;min-width:180px">
       <div id="auth-info" style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px"></div>
       <button id="auth-btn" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">Google 登入同步</button>
+      <button id="btn-tour-replay" style="width:100%;background:none;border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:11px;color:var(--text2);cursor:pointer;margin-top:6px">📖 教學導覽</button>
     </div>
     <div id="dd"></div>
     <div id="tabs">
@@ -709,6 +726,24 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
     </div>
     <div id="join-status" style="font-size:12px;min-height:18px;margin-bottom:8px;text-align:center"></div>
     <button class="bprimary" id="btn-join-confirm">確認加入</button>
+  </div>
+</div>
+
+<div id="tour-overlay">
+  <div id="tour-mask"></div>
+  <div id="tour-spotlight"></div>
+  <div id="tour-bubble">
+    <div class="tb-step">
+      <span id="tour-step-label">步驟 1 / 11</span>
+      <div class="tb-progress-wrap"><div class="tb-progress-fill" id="tour-progress"></div></div>
+    </div>
+    <div class="tb-title" id="tour-title"></div>
+    <div class="tb-desc" id="tour-desc"></div>
+    <div class="tb-actions">
+      <button class="tb-prev" id="tour-prev">上一步</button>
+      <button class="tb-skip" id="tour-skip">略過</button>
+      <button class="tb-next" id="tour-next">下一步</button>
+    </div>
   </div>
 </div>
 
