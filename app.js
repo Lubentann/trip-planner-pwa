@@ -382,7 +382,7 @@ function clRender(pid, container) {
     }
     const notePreview = item.note ? `<div class="cl-note-preview">${esc(item.note)}</div>` : '';
     html += `
-      <div class="cl-item${item.isChecked?' cl-done':''}" data-cid="${esc(item.id)}" draggable="true">
+      <div class="cl-item${item.isChecked?' cl-done':''}" data-cid="${esc(item.id)}">
         <div class="cl-row">
           <span class="drag-handle" title="拖曳排序"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="opacity:.45"><circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></span>
           <label class="cl-lbl">
@@ -546,91 +546,84 @@ function clBind(pid, container) {
     });
   });
 
-  // ── Drag-and-Drop (Static Indicator — no layout push) ────────────────────
+  // ── Drag-and-Drop (Ghost + Overlay — no layout push) ─────────────────────
   container.querySelectorAll('.cl-group').forEach(group => {
-    let dragSrc = null;
-    let targetItem = null;
-    let clInsertBefore = true;
-    let indicator = null;
-    let touchDragSrc = null;
+    let ghost = null, sourceItem = null, targetItem = null;
 
-    function getIndicator() {
-      if (!indicator) {
-        indicator = document.createElement('div');
-        indicator.className = 'drop-indicator';
-        group.style.position = 'relative';
-        group.appendChild(indicator);
-      }
-      indicator.style.display = 'block';
-      return indicator;
+    function start(item, x, y) {
+      sourceItem = item;
+      ghost = item.cloneNode(true);
+      ghost.className = 'drag-ghost cl-ghost';
+      ghost.style.width = item.offsetWidth + 'px';
+      ghost.style.left = (x - item.offsetWidth / 2) + 'px';
+      ghost.style.top = (y - 16) + 'px';
+      document.body.appendChild(ghost);
+      item.style.visibility = 'hidden';
     }
-    function hideIndicator() { if (indicator) indicator.style.display = 'none'; }
 
-    // ── HTML5 drag events (desktop) ──────────────────────────────────────
-    group.querySelectorAll('.cl-item').forEach(item => {
-      item.addEventListener('dragstart', e => {
-        dragSrc = item;
-        item.classList.add('cl-dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', item.dataset.cid);
-      });
-      item.addEventListener('dragend', () => {
-        item.classList.remove('cl-dragging');
-        hideIndicator();
-        if (!dragSrc || !targetItem || dragSrc === targetItem) { dragSrc = null; targetItem = null; return; }
-        if (clInsertBefore) group.insertBefore(dragSrc, targetItem);
-        else targetItem.insertAdjacentElement('afterend', dragSrc);
-        dragSrc = null; targetItem = null;
-        clPersistOrder(pid, group, window.clApiPatch);
-      });
-      item.addEventListener('dragover', e => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        if (!dragSrc || item === dragSrc) return;
-        targetItem = item;
-        const rect = item.getBoundingClientRect();
-        const groupRect = group.getBoundingClientRect();
-        clInsertBefore = e.clientY < rect.top + rect.height / 2;
-        const ind = getIndicator();
-        ind.style.top = ((clInsertBefore ? rect.top : rect.bottom) - groupRect.top - 1.5) + 'px';
-      });
-      item.addEventListener('drop', e => e.preventDefault());
-    });
+    function move(x, y) {
+      if (!ghost) return;
+      ghost.style.left = (x - ghost.offsetWidth / 2) + 'px';
+      ghost.style.top = (y - 16) + 'px';
+      ghost.style.display = 'none';
+      const el = document.elementFromPoint(x, y);
+      ghost.style.display = '';
+      const over = el?.closest('.cl-item');
+      if (over && over !== sourceItem && over.closest('.cl-group') === group) {
+        if (targetItem && targetItem !== over) targetItem.classList.remove('drag-target');
+        targetItem = over;
+        targetItem.classList.add('drag-target');
+      } else {
+        if (targetItem) { targetItem.classList.remove('drag-target'); targetItem = null; }
+      }
+    }
 
-    // ── Touch/Pointer events (mobile) — same static indicator ────────────
+    function end() {
+      if (!ghost) return;
+      ghost.remove(); ghost = null;
+      sourceItem.style.visibility = '';
+      if (targetItem) {
+        targetItem.classList.remove('drag-target');
+        const items = [...group.querySelectorAll('.cl-item')];
+        const fromIdx = items.indexOf(sourceItem);
+        const toIdx = items.indexOf(targetItem);
+        if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+          if (fromIdx < toIdx) targetItem.insertAdjacentElement('afterend', sourceItem);
+          else group.insertBefore(sourceItem, targetItem);
+        }
+      }
+      sourceItem = null; targetItem = null;
+      clPersistOrder(pid, group, window.clApiPatch);
+    }
+
+    // Bind mouse + touch to drag-handle (and cl-lbl for horizontal expansion)
     group.querySelectorAll('.drag-handle').forEach(handle => {
-      handle.addEventListener('touchstart', e => {
-        touchDragSrc = handle.closest('.cl-item');
-        touchDragSrc.classList.add('cl-dragging');
-      }, { passive: true });
-
-      handle.addEventListener('touchmove', e => {
-        if (!touchDragSrc) return;
+      // Mouse
+      handle.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        const item = handle.closest('.cl-item');
+        if (!item) return;
         e.preventDefault();
-        const touch  = e.touches[0];
-        const target = document.elementFromPoint(touch.clientX, touch.clientY);
-        const overItem = target?.closest('.cl-item');
-        if (overItem && overItem !== touchDragSrc && overItem.closest('.cl-group') === group) {
-          targetItem = overItem;
-          const rect = overItem.getBoundingClientRect();
-          const groupRect = group.getBoundingClientRect();
-          clInsertBefore = touch.clientY < rect.top + rect.height / 2;
-          const ind = getIndicator();
-          ind.style.top = ((clInsertBefore ? rect.top : rect.bottom) - groupRect.top - 1.5) + 'px';
-        }
-      }, { passive: false });
-
-      handle.addEventListener('touchend', () => {
-        if (!touchDragSrc) return;
-        touchDragSrc.classList.remove('cl-dragging');
-        hideIndicator();
-        if (targetItem && targetItem !== touchDragSrc) {
-          if (clInsertBefore) group.insertBefore(touchDragSrc, targetItem);
-          else targetItem.insertAdjacentElement('afterend', touchDragSrc);
-        }
-        clPersistOrder(pid, group, window.clApiPatch);
-        touchDragSrc = null; targetItem = null;
+        start(item, e.clientX, e.clientY);
+        const onMove = ev => { ev.preventDefault(); move(ev.clientX, ev.clientY); };
+        const onUp = () => { end(); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
       });
+      // Touch
+      handle.addEventListener('touchstart', e => {
+        const item = handle.closest('.cl-item');
+        if (!item) return;
+        const t = e.touches[0];
+        start(item, t.clientX, t.clientY);
+      }, { passive: true });
+      handle.addEventListener('touchmove', e => {
+        if (!ghost) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        move(t.clientX, t.clientY);
+      }, { passive: false });
+      handle.addEventListener('touchend', () => end());
     });
   });
 }
@@ -1117,7 +1110,7 @@ function renderTimeline() {
         const dispCat  = wishItem ? wishItem.category : t.category;
         const dispNote = wishItem ? wishItem.note : t.note;
         const heartHtml = buildHeartHtml('trip-heart', t.wishId || t.id, rating);
-        html += `<div class="card trip-card" draggable="true" data-trip-id="${t.id}">
+        html += `<div class="card trip-card" data-trip-id="${t.id}">
           <div class="vc-row1">
             <div class="drag-handle" title="拖曳排序">${IC.grip}</div>
             <span class="vc-name-wrap"><span class="vc-name">${esc(t.name)}</span><span class="tag ${CC[dispCat] || 't-teal'}">${esc(dispCat)}</span></span>
@@ -1207,102 +1200,86 @@ function scrollActiveDateIntoView() {
 //  Drag sort
 // =============================================================
 function initDragSort(list, dateStr) {
-  let dragging = null, targetCard = null, insertBefore = true;
-  let indicator = null;
+  let ghost = null, sourceCard = null, targetCard = null;
 
-  function getIndicator() {
-    if (!indicator) {
-      indicator = document.createElement('div');
-      indicator.className = 'drop-indicator';
-      list.style.position = 'relative';
-      list.appendChild(indicator);
-    }
-    indicator.style.display = 'block';
-    return indicator;
+  function start(card, x, y) {
+    sourceCard = card;
+    _isDragging = true;
+    // Ghost: semi-transparent clone following cursor
+    ghost = card.cloneNode(true);
+    ghost.className = 'drag-ghost';
+    ghost.style.width = card.offsetWidth + 'px';
+    ghost.style.left = (x - card.offsetWidth / 2) + 'px';
+    ghost.style.top = (y - 20) + 'px';
+    document.body.appendChild(ghost);
+    // Original: invisible but holds space
+    card.style.visibility = 'hidden';
   }
-  function hideIndicator() { if (indicator) indicator.style.display = 'none'; }
 
+  function move(x, y) {
+    if (!ghost) return;
+    ghost.style.left = (x - ghost.offsetWidth / 2) + 'px';
+    ghost.style.top = (y - 20) + 'px';
+    // Hide ghost temporarily to find element underneath
+    ghost.style.display = 'none';
+    const el = document.elementFromPoint(x, y);
+    ghost.style.display = '';
+    const over = el?.closest('.trip-card');
+    if (over && over !== sourceCard) {
+      if (targetCard && targetCard !== over) targetCard.classList.remove('drag-target');
+      targetCard = over;
+      targetCard.classList.add('drag-target');
+    } else {
+      if (targetCard) { targetCard.classList.remove('drag-target'); targetCard = null; }
+    }
+  }
+
+  async function end() {
+    if (!ghost) return;
+    ghost.remove(); ghost = null;
+    sourceCard.style.visibility = '';
+    _isDragging = false;
+    if (targetCard) {
+      targetCard.classList.remove('drag-target');
+      const cards = [...list.querySelectorAll('.trip-card')];
+      const fromIdx = cards.indexOf(sourceCard);
+      const toIdx = cards.indexOf(targetCard);
+      if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+        if (fromIdx < toIdx) targetCard.insertAdjacentElement('afterend', sourceCard);
+        else list.insertBefore(sourceCard, targetCard);
+      }
+    }
+    sourceCard = null; targetCard = null;
+    const newOrder = [...list.querySelectorAll('.trip-card')].map(c => c.dataset.tripId);
+    newOrder.forEach((id, i) => { const t = (db.trips[ap] || []).find(x => x.id === id); if (t) t.order = i; });
+    await Promise.all(newOrder.map((id, i) => window.projMerge(ap, `trips/${id}`, { order: i })));
+  }
+
+  // Bind mouse + touch to drag-handle and vc-name-wrap
   list.querySelectorAll('.trip-card').forEach(card => {
-    card.addEventListener('dragstart', e => {
-      dragging = card;
-      _isDragging = true;
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', card.dataset.tripId);
-      requestAnimationFrame(() => card.classList.add('dragging'));
-    });
-
-    card.addEventListener('dragend', async () => {
-      card.classList.remove('dragging');
-      _isDragging = false;
-      hideIndicator();
-      if (!dragging || !targetCard || dragging === targetCard) { dragging = null; targetCard = null; return; }
-      if (insertBefore) list.insertBefore(dragging, targetCard);
-      else targetCard.insertAdjacentElement('afterend', dragging);
-      dragging = null; targetCard = null;
-      const newOrder = [...list.querySelectorAll('.trip-card')].map(c => c.dataset.tripId);
-      newOrder.forEach((id, i) => { const t = (db.trips[ap] || []).find(x => x.id === id); if (t) t.order = i; });
-      await Promise.all(newOrder.map((id, i) => window.projMerge(ap, `trips/${id}`, { order: i })));
-    });
-
-    card.addEventListener('dragover', e => {
-      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
-      if (!dragging || dragging === card) return;
-      targetCard = card;
-      const rect = card.getBoundingClientRect();
-      const listRect = list.getBoundingClientRect();
-      insertBefore = e.clientY < rect.top + rect.height / 2;
-      const ind = getIndicator();
-      ind.style.top = ((insertBefore ? rect.top : rect.bottom) - listRect.top - 1.5) + 'px';
-    });
-
-    card.addEventListener('drop', e => e.preventDefault());
-  });
-
-  list.addEventListener('dragleave', e => {
-    if (!list.contains(e.relatedTarget)) { hideIndicator(); targetCard = null; }
-  });
-
-  // ── Touch drag (mobile) — drag-handle and vc-name-wrap ─────────────────
-  let touchDragCard = null, touchTarget = null, touchInsertBefore = true;
-  list.querySelectorAll('.trip-card').forEach(card => {
-    const handles = card.querySelectorAll('.drag-handle, .vc-name-wrap');
-    handles.forEach(handle => {
-      handle.addEventListener('touchstart', () => {
-        touchDragCard = card;
-        _isDragging = true;
-        card.classList.add('dragging');
-      }, { passive: true });
-
-      handle.addEventListener('touchmove', e => {
-        if (!touchDragCard) return;
+    card.querySelectorAll('.drag-handle, .vc-name-wrap').forEach(handle => {
+      // Mouse
+      handle.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
         e.preventDefault();
-        const touch = e.touches[0];
-        const el = document.elementFromPoint(touch.clientX, touch.clientY);
-        const overCard = el?.closest('.trip-card');
-        if (overCard && overCard !== touchDragCard) {
-          touchTarget = overCard;
-          const rect = overCard.getBoundingClientRect();
-          const listRect = list.getBoundingClientRect();
-          touchInsertBefore = touch.clientY < rect.top + rect.height / 2;
-          const ind = getIndicator();
-          ind.style.top = ((touchInsertBefore ? rect.top : rect.bottom) - listRect.top - 1.5) + 'px';
-        }
-      }, { passive: false });
-
-      handle.addEventListener('touchend', async () => {
-        if (!touchDragCard) return;
-        touchDragCard.classList.remove('dragging');
-        _isDragging = false;
-        hideIndicator();
-        if (touchTarget && touchTarget !== touchDragCard) {
-          if (touchInsertBefore) list.insertBefore(touchDragCard, touchTarget);
-          else touchTarget.insertAdjacentElement('afterend', touchDragCard);
-        }
-        touchDragCard = null; touchTarget = null;
-        const newOrder = [...list.querySelectorAll('.trip-card')].map(c => c.dataset.tripId);
-        newOrder.forEach((id, i) => { const t = (db.trips[ap] || []).find(x => x.id === id); if (t) t.order = i; });
-        await Promise.all(newOrder.map((id, i) => window.projMerge(ap, `trips/${id}`, { order: i })));
+        start(card, e.clientX, e.clientY);
+        const onMove = ev => { ev.preventDefault(); move(ev.clientX, ev.clientY); };
+        const onUp = () => { end(); document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
       });
+      // Touch
+      handle.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        start(card, t.clientX, t.clientY);
+      }, { passive: true });
+      handle.addEventListener('touchmove', e => {
+        if (!ghost) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        move(t.clientX, t.clientY);
+      }, { passive: false });
+      handle.addEventListener('touchend', () => end());
     });
   });
 }
