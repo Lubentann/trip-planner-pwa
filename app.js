@@ -2070,7 +2070,7 @@ async function saveWish() {
   setTimeout(() => {
     const card = document.querySelector(`.wish-card[data-wish-id="${newId}"]`);
     if (card) { card.classList.add('highlight'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-  }, 40);
+  }, 110);
 }
 
 async function delWish(id) {
@@ -2196,7 +2196,7 @@ async function saveSched() {
     setTimeout(() => {
       const card = document.querySelector(`.trip-card[data-trip-id="${firstNew.id}"]`);
       if (card) { card.classList.add('highlight'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-    }, 60);
+    }, 110);
   }
   const dayLabels = [...new Set(newIds.map(n => n.date))].map(d => {
     const days = getTripDays(); const idx = days.indexOf(d);
