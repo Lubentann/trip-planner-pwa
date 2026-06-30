@@ -835,9 +835,14 @@ function renderHome() {
     }
   }
 
+  const memberCount = p.members ? Object.keys(p.members).length : 1;
+
   el.innerHTML = `
     <div style="padding:16px 0 8px">
-      <div style="font-size:26px;font-weight:700;margin-bottom:4px;letter-spacing:-.3px">${esc(p.name)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div style="font-size:26px;font-weight:700;letter-spacing:-.3px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</div>
+        <button class="mem-badge-btn" id="btn-open-members" title="專案成員">${IC.people}<span class="mem-count">${memberCount}</span></button>
+      </div>
       ${p.destination?`<div style="font-size:12px;color:var(--text3);margin-bottom:2px">${esc(p.destination)}</div>`:''}
       ${dateStr?`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">${dateStr}</div>`:'<div style="margin-bottom:10px"></div>'}
       ${countdownHtml}
@@ -857,6 +862,8 @@ function renderHome() {
     </div>`;
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
+  const memBtn = el.querySelector('#btn-open-members');
+  if (memBtn) memBtn.addEventListener('click', openMembersModal);
   clLoad(ap, el.querySelector('#cl-body'));
 }
 
@@ -1762,6 +1769,66 @@ async function applyProjSave(obj) {
   updateFirstRunTip();
 }
 
+// =============================================================
+//  Member List & Ownership Transfer
+// =============================================================
+
+function _resolveMemberName(m, uid) {
+  return m.nickname || m.displayName || uid.slice(0, 8);
+}
+
+function openMembersModal() {
+  const p = db.projects.find(x => x.id === ap);
+  if (!p || !p.members) return;
+  const user = getCurrentUser();
+  const myUid = user ? user.uid : '';
+  const list = document.getElementById('members-list');
+  if (!list) return;
+  list.innerHTML = Object.entries(p.members).map(([uid, m]) => {
+    const name = _resolveMemberName(m, uid);
+    const isSelf = uid === myUid;
+    const roleBadge = m.role === 'owner' ? '擁有者' : '成員';
+    const roleClass = m.role === 'owner' ? 'mem-owner' : 'mem-member';
+    const editBtn = isSelf ? `<button class="ib mem-edit-nick" data-uid="${uid}" title="修改暱稱"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : '';
+    return `<div class="mem-row${isSelf ? ' mem-self' : ''}">
+      <div class="mem-avatar">${name.charAt(0).toUpperCase()}</div>
+      <div class="mem-info">
+        <span class="mem-name" id="mem-name-${uid}">${esc(name)}${isSelf ? ' (你)' : ''}</span>
+        <span class="mem-role ${roleClass}">${roleBadge}</span>
+      </div>
+      ${editBtn}
+    </div>`;
+  }).join('');
+
+  // Bind nickname edit
+  list.querySelectorAll('.mem-edit-nick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const uid = btn.dataset.uid;
+      const nameEl = document.getElementById('mem-name-' + uid);
+      if (!nameEl) return;
+      const current = (p.members[uid]?.nickname) || '';
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = current; input.maxLength = 20;
+      input.style.cssText = 'font-size:12px;padding:2px 6px;border:1px solid var(--accent);border-radius:4px;width:100px';
+      nameEl.replaceWith(input);
+      input.focus();
+      const save = async () => {
+        const newNick = input.value.trim();
+        await window.projMerge(ap, `members/${uid}`, { nickname: newNick });
+        if (p.members[uid]) p.members[uid].nickname = newNick;
+        const span = document.createElement('span');
+        span.className = 'mem-name'; span.id = 'mem-name-' + uid;
+        span.textContent = (newNick || p.members[uid]?.displayName || uid.slice(0, 8)) + ' (你)';
+        input.replaceWith(span);
+      };
+      input.addEventListener('blur', save);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+    });
+  });
+
+  om('m-members');
+}
+
 function delProj(id) {
   const p = db.projects.find(x => x.id === id);
   if (!p) return;
@@ -1770,27 +1837,59 @@ function delProj(id) {
 
   const user = getCurrentUser();
   const isOwner = p.ownerId && user && p.ownerId === user.uid;
+  const memberCount = p.members ? Object.keys(p.members).length : 1;
+  const hasCollaborators = isOwner && memberCount > 1;
+
   const titleEl = $('del-proj-title');
   const descEl  = $('del-proj-desc');
   const confirmRow = $('del-proj-confirm-row');
+  const transferRow = $('del-proj-transfer-row');
   const btn     = $('btn-del-proj-confirm');
 
   $('del-proj-name').textContent = p.name;
 
-  if (isOwner) {
+  if (hasCollaborators) {
+    // Ownership transfer mode
+    if (titleEl) titleEl.textContent = '轉移專案擁有權';
+    if (descEl) descEl.textContent = '您是此專案的擁有者。退出前，請選擇一位成員接手管理，專案資料將完整保留。';
+    if (confirmRow) confirmRow.style.display = 'none';
+    if (transferRow) {
+      transferRow.style.display = '';
+      const radios = Object.entries(p.members)
+        .filter(([uid]) => uid !== user.uid)
+        .map(([uid, m]) => {
+          const name = _resolveMemberName(m, uid);
+          return `<label class="transfer-opt"><input type="radio" name="transfer-to" value="${uid}"><span>${esc(name)}</span><span class="mem-role mem-member">成員</span></label>`;
+        }).join('');
+      transferRow.innerHTML = radios;
+      transferRow.querySelectorAll('input[name="transfer-to"]').forEach(r => {
+        r.addEventListener('change', () => {
+          btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+        });
+      });
+    }
+    btn.textContent = '確認轉移並退出';
+    btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed';
+    btn.style.background = 'var(--accent)';
+    btn.dataset.mode = 'transfer';
+  } else if (isOwner) {
     if (titleEl)    titleEl.textContent = '刪除專案';
     if (descEl)     descEl.textContent  = '此操作無法復原。專案中所有地點、行程及資料將被永久刪除。';
     if (confirmRow) confirmRow.style.display = '';
+    if (transferRow) transferRow.style.display = 'none';
     $('del-proj-confirm-input').value = '';
     btn.textContent = '確認刪除';
     btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed';
+    btn.dataset.mode = 'delete';
   } else {
     if (titleEl)    titleEl.textContent = '退出專案';
     if (descEl)     descEl.textContent  = '退出後將無法存取此專案，但專案資料會保留給擁有者及其他成員。';
     if (confirmRow) confirmRow.style.display = 'none';
+    if (transferRow) transferRow.style.display = 'none';
     btn.textContent = '確認退出';
     btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
     btn.style.background = 'var(--accent)';
+    btn.dataset.mode = 'leave';
   }
 
   om('m-del-proj');
@@ -1801,26 +1900,46 @@ async function execDelProj() {
   const id = delProjTarget; delProjTarget = null;
   const p = db.projects.find(x => x.id === id);
   const user = getCurrentUser();
-  const isOwner = p && p.ownerId && user && p.ownerId === user.uid;
+  const btn = $('btn-del-proj-confirm');
+  const mode = btn?.dataset.mode || 'delete';
 
-  if (isOwner) {
+  if (mode === 'transfer') {
+    // Ownership transfer: upgrade successor, update ownerId, remove self
+    const selected = document.querySelector('input[name="transfer-to"]:checked');
+    if (!selected) return;
+    const successorUid = selected.value;
+    try {
+      await window.projMerge(id, `members/${successorUid}`, { role: 'owner' });
+      await window.projMerge(id, 'info', { ownerId: successorUid });
+      await window.projDelete(id, `members/${user.uid}`);
+      await window.userProjectsRemove(id);
+    } catch(e) { showToast('⚠️ 轉移失敗，請重試'); return; }
+    db.projects = db.projects.filter(x => x.id !== id);
+    delete db.wishlist[id]; delete db.trips[id];
+    if (ap === id) ap = db.projects[0]?.id || null;
+    cm('m-del-proj'); renderAll(); showTab('home');
+    if (ap) { startWishlistSync(ap); startTripsSync(ap); } else { stopWishlistSync(); stopTripsSync(); }
+    showToast('👋 已轉移擁有權並退出專案');
+  } else if (mode === 'delete') {
+    // Solo owner: destructive delete
     db.projects = db.projects.filter(x => x.id !== id);
     delete db.wishlist[id]; delete db.trips[id];
     if (ap === id) ap = db.projects[0]?.id || null;
     await saveDB();
+    cm('m-del-proj'); renderAll(); showTab('home');
+    if (ap) { startWishlistSync(ap); startTripsSync(ap); } else { stopWishlistSync(); stopTripsSync(); }
+    showToast('🗑️ 專案已刪除');
   } else {
+    // Guest leave
     await window.projDelete(id, 'members/' + user.uid);
     await window.userProjectsRemove(id);
     db.projects = db.projects.filter(x => x.id !== id);
     delete db.wishlist[id]; delete db.trips[id];
     if (ap === id) ap = db.projects[0]?.id || null;
+    cm('m-del-proj'); renderAll(); showTab('home');
+    if (ap) { startWishlistSync(ap); startTripsSync(ap); } else { stopWishlistSync(); stopTripsSync(); }
+    showToast('👋 已退出專案');
   }
-
-  cm('m-del-proj'); renderAll(); showTab('home');
-  // Restart sync for the new active project (or stop if none)
-  if (ap) { startWishlistSync(ap); startTripsSync(ap); }
-  else    { stopWishlistSync(); stopTripsSync(); }
-  showToast(isOwner ? '🗑️ 專案已刪除' : '👋 已退出專案');
 }
 
 // =============================================================
@@ -2367,6 +2486,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Route
   on('mc-route',      'click', () => cm('m-route'));
+  on('mc-members',    'click', () => cm('m-members'));
   on('btn-open-route','click', launchRoute);
 
   // Export
@@ -2859,7 +2979,7 @@ async function joinProject() {
   }
 
   // 5. Write self into /projects/${pid}/members/${uid}
-  const memberOk = await window.projPatch(pid, `members/${user.uid}`, { role: 'member', nickname: '' });
+  const memberOk = await window.projPatch(pid, `members/${user.uid}`, { role: 'member', nickname: '', displayName: user.displayName || user.email || '' });
   if (!memberOk) {
     statusEl.textContent = '⚠️ 無法加入專案，請重試或聯繫擁有者';
     statusEl.style.color = 'var(--coral)';
