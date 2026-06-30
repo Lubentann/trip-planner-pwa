@@ -192,6 +192,7 @@ window.fbRead = async function() {
       color:       info.color       || '',
       createdAt:   info.createdAt   || 0,
       ownerId:     info.ownerId     || '',
+      members:     proj.members     || {},
     });
 
     assembled.wishlist[pid] = _mapToArray(proj.wishlist);
@@ -235,7 +236,7 @@ window.fbWrite = async function(data) {
     if (!existing) {
       ok = await _projPut(pid, {
         info,
-        members:  { [user.uid]: { role: 'owner', nickname: '' } },
+        members:  { [user.uid]: { role: 'owner', nickname: '', displayName: user.displayName || user.email || '' } },
         wishlist,
         trips,
       });
