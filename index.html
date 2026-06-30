@@ -380,6 +380,22 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .cl-new-inp{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0 8px;font-size:12px;color:var(--text);font-family:inherit}
 .cl-new-inp:focus{outline:none;border-color:var(--accent)}
 .cl-add-btn{width:32px;padding:0;display:flex;justify-content:center;align-items:center;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:18px;font-weight:700;cursor:pointer;flex-shrink:0}
+.mem-badge-btn{display:flex;align-items:center;gap:4px;background:none;border:1px solid var(--border2);border-radius:12px;padding:3px 8px;font-size:11px;color:var(--text2);cursor:pointer;flex-shrink:0}
+.mem-badge-btn:hover{background:var(--surface2);color:var(--accent)}
+.mem-badge-btn svg{width:13px;height:13px}
+.mem-count{font-weight:600}
+.mem-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.mem-row:last-child{border-bottom:none}
+.mem-self{background:var(--accent-l);margin:0 -16px;padding:10px 16px;border-radius:var(--r)}
+.mem-avatar{width:32px;height:32px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0}
+.mem-info{flex:1;min-width:0;display:flex;align-items:center;gap:6px}
+.mem-name{font-size:13px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mem-role{font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600;flex-shrink:0}
+.mem-owner{background:var(--amber-l);color:var(--amber)}
+.mem-member{background:var(--blue-l);color:var(--blue)}
+.transfer-opt{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;cursor:pointer;font-size:13px}
+.transfer-opt:hover{background:var(--surface2)}
+.transfer-opt input[type="radio"]{accent-color:var(--accent)}
 #tour-overlay{position:fixed;inset:0;z-index:9000;pointer-events:none;transition:opacity .25s;display:none}
 #tour-overlay.active{pointer-events:all;display:block}
 #tour-mask{position:absolute;inset:0;background:rgba(0,0,0,0.58)}
@@ -680,6 +696,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
     <div id="del-proj-name" style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px"></div>
     <div id="del-proj-desc" style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">此操作無法復原，該專案的所有地點清單與行程安排都將一併刪除。</div>
     <div id="del-proj-confirm-row" class="f"><label>請輸入專案名稱確認</label><input id="del-proj-confirm-input" placeholder="輸入專案名稱…"></div>
+    <div id="del-proj-transfer-row" style="display:none;margin-bottom:12px"></div>
     <button class="bprimary" id="btn-del-proj-confirm" style="background:var(--coral);margin-top:4px;opacity:.5;cursor:not-allowed" disabled>確認刪除</button>
   </div>
 </div>
@@ -726,6 +743,14 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
     </div>
     <div id="join-status" style="font-size:12px;min-height:18px;margin-bottom:8px;text-align:center"></div>
     <button class="bprimary" id="btn-join-confirm">確認加入</button>
+  </div>
+</div>
+
+<!-- Modal: Members List -->
+<div class="mwrap" id="m-members">
+  <div class="modal">
+    <div class="mtitle"><span>專案成員</span><button class="mclose" id="mc-members">✕</button></div>
+    <div class="mbody" id="members-list"></div>
   </div>
 </div>
 
