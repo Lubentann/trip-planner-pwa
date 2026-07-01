@@ -284,9 +284,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 
 /* 行程加入成功動畫 */
 @keyframes trip-highlight{
-  0%{border-color:var(--accent-m);background:rgba(82,183,136,0.18)}
-  20%{border-color:var(--accent-m);background:rgba(82,183,136,0.18)}
-  100%{border-color:var(--border);background:var(--surface2)}
+  0%{box-shadow:inset 0 0 0 2px var(--accent-m);background:rgba(82,183,136,0.18)}
+  20%{box-shadow:inset 0 0 0 2px var(--accent-m);background:rgba(82,183,136,0.18)}
+  100%{box-shadow:none;background:var(--surface2)}
 }
 .trip-card.highlight{animation:trip-highlight 1s ease-out forwards}
 
@@ -294,9 +294,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .sched-done-tag{font-size:10px;padding:2px 8px;background:var(--accent-l);color:var(--accent);border-radius:20px;font-weight:600;margin-left:auto;flex-shrink:1;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 @keyframes wish-highlight{
-  0%{border-color:var(--accent-m);background:rgba(82,183,136,0.15)}
-  15%{border-color:var(--accent-m);background:rgba(82,183,136,0.15)}
-  100%{border-color:var(--border);background:var(--surface2)}
+  0%{box-shadow:inset 0 0 0 2px var(--accent-m);background:rgba(82,183,136,0.15)}
+  15%{box-shadow:inset 0 0 0 2px var(--accent-m);background:rgba(82,183,136,0.15)}
+  100%{box-shadow:none;background:var(--surface2)}
 }
 .wish-card.highlight{animation:wish-highlight 0.7s ease-out forwards}
 .day-summary{padding:8px 2px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--border);border-radius:4px}
