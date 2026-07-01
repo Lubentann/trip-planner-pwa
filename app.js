@@ -1054,6 +1054,7 @@ function bindWishControls(el) {
   el.querySelectorAll('.wish-check').forEach(cb => cb.addEventListener('change', updateMultiBar));
   on('wish-sel-all',  'click', () => { el.querySelectorAll('.wish-check').forEach(cb => cb.checked = true);  updateMultiBar(); });
   on('wish-sel-clear','click', () => { el.querySelectorAll('.wish-check').forEach(cb => cb.checked = false); updateMultiBar(); });
+  on('wish-sel-delete', 'click', delSelectedWishes);
   on('wish-multi-sched-btn', 'click', () => {
     const ids = [...el.querySelectorAll('.wish-check:checked')].map(cb => cb.dataset.wishId);
     openMultiSched(ids);
@@ -2071,6 +2072,29 @@ async function saveWish() {
     const card = document.querySelector(`.wish-card[data-wish-id="${newId}"]`);
     if (card) { card.classList.add('highlight'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
   }, 180);
+}
+
+async function delSelectedWishes() {
+  const ids = [...document.querySelectorAll('#pg-wish .wish-check:checked')].map(cb => cb.dataset.wishId);
+  if (!ids.length) { showToast('請先選擇要刪除的地點'); return; }
+  const wishes = (db.wishlist[ap] || []).filter(w => ids.includes(w.id));
+  if (!wishes.length) return;
+  const label = wishes.length === 1 ? `「${wishes[0].name}」` : `已選的 ${wishes.length} 個地點`;
+  if (!confirm(`確定要刪除${label}？`)) return;
+
+  const snapshots = wishes.map(w => JSON.parse(JSON.stringify(w)));
+  const snapAp = ap;
+  const idSet = new Set(ids);
+  db.wishlist[ap] = (db.wishlist[ap] || []).filter(w => !idSet.has(w.id));
+  await Promise.all(ids.map(id => window.projDelete(ap, `wishlist/${id}`)));
+  renderWish();
+  showUndoToast(`已刪除 ${wishes.length} 個地點`, async () => {
+    if (!db.wishlist[snapAp]) db.wishlist[snapAp] = [];
+    snapshots.reverse().forEach(s => db.wishlist[snapAp].unshift(s));
+    await Promise.all(snapshots.map(s => window.projPatch(snapAp, `wishlist/${s.id}`, s)));
+    if (at === 'wish') renderWish();
+    if (at === 'home') renderHome();
+  });
 }
 
 async function delWish(id) {
