@@ -840,7 +840,7 @@ function renderHome() {
   el.innerHTML = `
     <div style="padding:16px 0 8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <div style="font-size:26px;font-weight:700;letter-spacing:-.3px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</div>
+        <div style="font-size:26px;font-weight:700;letter-spacing:-.3px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</div>
         <button class="mem-badge-btn" id="btn-open-members" title="專案成員">${IC.people}<span class="mem-count">${memberCount}</span></button>
       </div>
       ${p.destination?`<div style="font-size:12px;color:var(--text3);margin-bottom:2px">${esc(p.destination)}</div>`:''}
@@ -2070,7 +2070,7 @@ async function saveWish() {
   setTimeout(() => {
     const card = document.querySelector(`.wish-card[data-wish-id="${newId}"]`);
     if (card) { card.classList.add('highlight'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-  }, 110);
+  }, 180);
 }
 
 async function delWish(id) {
@@ -2196,7 +2196,7 @@ async function saveSched() {
     setTimeout(() => {
       const card = document.querySelector(`.trip-card[data-trip-id="${firstNew.id}"]`);
       if (card) { card.classList.add('highlight'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-    }, 110);
+    }, 180);
   }
   const dayLabels = [...new Set(newIds.map(n => n.date))].map(d => {
     const days = getTripDays(); const idx = days.indexOf(d);
