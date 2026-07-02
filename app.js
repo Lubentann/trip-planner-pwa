@@ -1106,7 +1106,7 @@ function renderTimeline() {
   let html = `
     <div id="mini-date-bar">${miniBar}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
-      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" style="cursor:pointer;opacity:0.5;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>` : ''}</div>
+      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="2" stroke-linecap="round" style="cursor:pointer;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>` : ''}</div>
       ${viewToggle}
     </div>
     ${timelineView === 'day' && _customName ? `<div id="day-name-subtitle">- ${esc(_customName)}</div>` : ''}`;
