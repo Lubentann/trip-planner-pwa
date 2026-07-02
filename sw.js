@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v19'; // 自訂日期主題、確認彈窗、副標題重設計
+const CACHE_NAME = 'trip-planner-v22'; // 站點間移動時間估算與手動覆寫
 const ASSETS = [
   './',
   './index.html',
