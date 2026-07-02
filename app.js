@@ -1106,7 +1106,7 @@ function renderTimeline() {
   let html = `
     <div id="mini-date-bar">${miniBar}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
-      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<span id="day-name-add" style="cursor:pointer;font-size:11px;color:gray;opacity:0.7">✏️</span>` : ''}</div>
+      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:gray"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>` : ''}</div>
       ${viewToggle}
     </div>
     ${timelineView === 'day' && _customName ? `<div id="day-name-subtitle">- ${esc(_customName)}</div>` : ''}`;
