@@ -193,6 +193,7 @@ window.fbRead = async function() {
       createdAt:   info.createdAt   || 0,
       ownerId:     info.ownerId     || '',
       members:     proj.members     || {},
+      dayNames:    proj.dayNames    || {},
     });
 
     assembled.wishlist[pid] = _mapToArray(proj.wishlist);
