@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v18'; // 命名統一（地點清單/行程安排）、新手引導修正、加入清單按鈕樣式
+const CACHE_NAME = 'trip-planner-v19'; // 自訂日期主題、確認彈窗、副標題重設計
 const ASSETS = [
   './',
   './index.html',
