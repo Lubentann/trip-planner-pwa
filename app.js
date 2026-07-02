@@ -522,7 +522,7 @@ function clBind(pid, container) {
   container.querySelectorAll('.cl-del').forEach(btn => {
     btn.addEventListener('click', async () => {
       const cid = btn.dataset.cid;
-      if (!confirm('確定刪除？')) return;
+      if (!await showConfirm('確定刪除？')) return;
       const ok = await window.clApiDelete(pid, cid);
       if (ok) { delete _clCache[pid][cid]; clRender(pid, container); }
       else showToast('⚠️ 刪除失敗');
@@ -847,8 +847,8 @@ function renderHome() {
       ${dateStr?`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">${dateStr}</div>`:'<div style="margin-bottom:10px"></div>'}
       ${countdownHtml}
       <div class="hstats">
-        <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">地點清單</div></div>
         <div class="hstat"><div class="hsv">${allDays.length}</div><div class="hsl">天行程</div></div>
+        <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">地點清單</div></div>
         <div class="hstat hstat-click" data-goto="timeline"><div class="hsv">${trips}</div><div class="hsl">地點安排</div></div>
       </div>
     </div>
@@ -1099,24 +1099,28 @@ function renderTimeline() {
     <button class="vt-btn ${timelineView==='overview'?'active':''}" id="vt-overview">全覽</button>
   </div>`;
 
+  const _dayNames = db.projects.find(x => x.id === ap)?.dayNames || {};
+  const _activeDateKey = timelineView === 'day' ? days[currentDayIdx] : null;
+  const _customName = _activeDateKey ? (_dayNames[_activeDateKey] || '') : '';
+
   let html = `
     <div id="mini-date-bar">${miniBar}</div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 8px">
-      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text)">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
+      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" style="cursor:pointer;opacity:0.5;flex-shrink:0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>` : ''}</div>
       ${viewToggle}
-    </div>`;
+    </div>
+    ${timelineView === 'day' && _customName ? `<div id="day-name-subtitle">- ${esc(_customName)}</div>` : ''}`;
 
   if (timelineView === 'overview') {
     $('timeline-bar').classList.remove('show');
     // 全覽模式
-    const maxCount = Math.max(1, ...days.map(d => (db.trips[ap] || []).filter(t => t.date === d).length));
     html += `<div id="timeline-overview" class="show">`;
     days.forEach((d, i) => {
       const dayTrips = sortedDayTrips(d);
       const [, m, dd] = d.split('-').map(Number);
       const wk = WKDAY[new Date(...d.split('-').map(Number).map((v,j)=>j===1?v-1:v)).getDay()];
-      const label = `Day ${i+1}  ${m}/${dd}（週${wk}）`;
-      const pct = maxCount ? Math.round(dayTrips.length / maxCount * 100) : 0;
+      const _ovCustomName = _dayNames[d] ? ` · ${_dayNames[d]}` : '';
+      const label = `Day ${i+1}  ${m}/${dd}（週${wk}）${_ovCustomName}`;
       const names = dayTrips.map(t => t.name).join('・') || '尚未安排';
       const totalMin = dayTrips.reduce((s, t) => s + (Number(t.duration) || 0), 0);
       const timeStr = totalMin ? `${Math.floor(totalMin/60)}h${totalMin%60?totalMin%60+'m':''}` : '';
@@ -1126,7 +1130,6 @@ function renderTimeline() {
           <div class="ov-day-count">${dayTrips.length} 個地點${timeStr?' · '+timeStr:''}</div>
         </div>
         <div class="ov-day-spots">${esc(names)}</div>
-        ${dayTrips.length ? `<div class="ov-day-bar" style="width:${pct}%"></div>` : ''}
       </div>`;
     });
     html += `</div>`;
@@ -1142,7 +1145,7 @@ function renderTimeline() {
       ? `<div class="day-time-summary">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span></div>`
       : '';
 
-    html += `<div class="shd" style="margin-top:0"><h2>行程安排</h2><button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div>`;
+    html += `<div class="shd" style="margin-top:0;padding-top:0"><h2>行程安排</h2><button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div>`;
     html += timeSummary;
 
     if (!dayTrips.length) {
@@ -1202,6 +1205,42 @@ function renderTimeline() {
   // 視圖切換
   on('vt-day', 'click', () => { timelineView = 'day'; renderTimeline(); });
   on('vt-overview', 'click', () => { timelineView = 'overview'; renderTimeline(); });
+
+  // 今日主題內聯編輯
+  const _openDayNameEdit = (anchor) => {
+    const p = db.projects.find(x => x.id === ap);
+    const date = days[currentDayIdx];
+    const cur = (p?.dayNames || {})[date] || '';
+    const inp = document.createElement('input');
+    inp.id = 'day-name-input'; inp.maxLength = 10; inp.value = cur;
+    inp.placeholder = '今日主題（最多10字）';
+    if (anchor.id === 'day-name-subtitle') {
+      anchor.replaceWith(inp);
+    } else {
+      $('date-label-main').parentElement.after(inp);
+    }
+    inp.focus(); inp.select();
+    const save = async () => {
+      const val = inp.value.trim().slice(0, 10);
+      if (val !== cur) {
+        if (val) { await window.projPatch(ap, `dayNames/${date}`, val); if (!p.dayNames) p.dayNames = {}; p.dayNames[date] = val; }
+        else { await window.projDelete(ap, `dayNames/${date}`); if (p?.dayNames) delete p.dayNames[date]; }
+      }
+      renderTimeline();
+    };
+    inp.addEventListener('blur', save, { once: true });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+      if (e.key === 'Escape') { inp.removeEventListener('blur', save); renderTimeline(); }
+    });
+  };
+  const _subtitleEl = $('day-name-subtitle');
+  if (_subtitleEl) _subtitleEl.addEventListener('click', () => _openDayNameEdit(_subtitleEl));
+  const _addIcon = $('day-name-add');
+  if (_addIcon) _addIcon.addEventListener('click', () => {
+    const label = $('date-label-main');
+    if (label) _openDayNameEdit(label);
+  });
 
   on('timeline-add-btn', 'click', () => showTab('wish'));
   on('timeline-add-btn-bottom', 'click', () => showTab('wish'));
@@ -2080,7 +2119,7 @@ async function delSelectedWishes() {
   const wishes = (db.wishlist[ap] || []).filter(w => ids.includes(w.id));
   if (!wishes.length) return;
   const label = wishes.length === 1 ? `「${wishes[0].name}」` : `已選的 ${wishes.length} 個地點`;
-  if (!confirm(`確定要刪除${label}？`)) return;
+  if (!await showConfirm(`確定要刪除${label}？`)) return;
 
   const snapshots = wishes.map(w => JSON.parse(JSON.stringify(w)));
   const snapAp = ap;
@@ -2124,9 +2163,13 @@ function openSched(wishId) {
   schedWishId = wishId;
   const w = (db.wishlist[ap] || []).find(x => x.id === wishId) || {};
   $('sc-spot-name').textContent = w.name || '';
-  $('sc-days').innerHTML = days.map((d, i) =>
-    `<div class="day-check" data-date="${d}" data-dur="${w.duration || 60}"><input type="checkbox" data-date="${d}" data-dur="${w.duration || 60}"><span>${fmtDayLabel(d, i, days.length)}</span></div>`
-  ).join('');
+  const _schedDayNames = db.projects.find(x => x.id === ap)?.dayNames || {};
+  $('sc-days').innerHTML = days.map((d, i) => {
+    const [,dm,dd] = d.split('-').map(Number);
+    const dn = _schedDayNames[d] ? ` · ${_schedDayNames[d]}` : '';
+    const lbl = `Day ${i+1}  ${dm}/${dd}${dn}`;
+    return `<div class="day-check" data-date="${d}" data-dur="${w.duration || 60}"><input type="checkbox" data-date="${d}" data-dur="${w.duration || 60}"><span class="day-chip-label">${esc(lbl)}</span></div>`;
+  }).join('');
   $('sc-days').querySelectorAll('.day-check').forEach(row => {
     row.addEventListener('click', e => {
       if (e.target.tagName !== 'INPUT') { const cb = row.querySelector('input'); cb.checked = !cb.checked; }
@@ -2414,9 +2457,12 @@ function openMultiSched(ids) {
   if (!days.length) { alert('請先在專案中設定出發與結束日期'); return; }
   multiSchedIds = ids;
   $('multi-sel-count').textContent = ids.length;
-  $('multi-sched-days').innerHTML = days.map((d, i) =>
-    `<div class="day-check" data-date="${d}"><input type="checkbox" data-date="${d}"><span>${fmtDayLabel(d, i, days.length)}</span></div>`
-  ).join('');
+  const _multiDayNames = db.projects.find(x => x.id === ap)?.dayNames || {};
+  $('multi-sched-days').innerHTML = days.map((d, i) => {
+    const [,dm,dd] = d.split('-').map(Number);
+    const dn = _multiDayNames[d] ? ` · ${_multiDayNames[d]}` : '';
+    return `<div class="day-check" data-date="${d}"><input type="checkbox" data-date="${d}"><span class="day-chip-label">${esc(`Day ${i+1}  ${dm}/${dd}${dn}`)}</span></div>`;
+  }).join('');
   $('multi-sched-days').querySelectorAll('.day-check').forEach(row => {
     row.addEventListener('click', e => { if (e.target.tagName !== 'INPUT') { const cb = row.querySelector('input'); cb.checked = !cb.checked; } });
   });
@@ -2459,6 +2505,20 @@ async function saveMultiSched() {
 // =============================================================
 function om(id) { $(id).classList.add('open'); }
 function cm(id) { $(id).classList.remove('open'); eid = null; }
+
+function showConfirm(msg) {
+  return new Promise(resolve => {
+    $('confirm-msg').textContent = msg;
+    om('m-confirm');
+    const ok     = $('confirm-ok');
+    const cancel = $('confirm-cancel');
+    const close  = $('mc-confirm');
+    const finish = val => { cm('m-confirm'); ok.replaceWith(ok.cloneNode(true)); cancel.replaceWith(cancel.cloneNode(true)); close.replaceWith(close.cloneNode(true)); resolve(val); };
+    $('confirm-ok').addEventListener('click',     () => finish(true),  { once: true });
+    $('confirm-cancel').addEventListener('click', () => finish(false), { once: true });
+    $('mc-confirm').addEventListener('click',     () => finish(false), { once: true });
+  });
+}
 
 // =============================================================
 //  DOMContentLoaded — 靜態事件綁定
