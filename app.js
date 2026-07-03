@@ -178,6 +178,8 @@ let sc  = '#2d6a4f'; // selected color
 let pending      = null;
 let schedWishId  = null;
 let currentDayIdx = 0;
+let weatherByDate = {};   // { 'YYYY-MM-DD': { code, t } } 由 Open-Meteo 取得
+let weatherFetchKey = ''; // 避免同一區間重複請求
 let pendingProjObj = null;
 let routeTrips   = [];
 let routeMode    = 'driving';
@@ -198,6 +200,14 @@ function esc(s) {
 }
 function $(id)       { return document.getElementById(id); }
 function on(id, ev, fn) { const el = $(id); if (el) el.addEventListener(ev, fn); }
+// 地圖連結：無 mapUrl 的純名稱項目改用 Google Maps 名稱搜尋，讓「地圖」按鈕永遠可用
+function itemMapUrl(mapUrl, name) {
+  return mapUrl || (name ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}` : '');
+}
+// 地點名稱正規化，用於重複判斷（與 Extension 的 normName 一致）
+function normName(name) {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
 function showToast(msg) {
   const t = $('toast');
@@ -835,6 +845,32 @@ function renderHome() {
     }
   }
 
+  // 旅程結束後顯示回顧卡片
+  let recapHtml = '';
+  if (p.startDate && p.endDate) {
+    const _today = new Date(); _today.setHours(0, 0, 0, 0);
+    const _end = new Date(p.endDate); _end.setHours(0, 0, 0, 0);
+    const allTrips = db.trips[ap] || [];
+    if (_today > _end && allTrips.length) {
+      const visitedCnt = allTrips.filter(t => t.visited).length;
+      const catCount = {};
+      allTrips.forEach(t => {
+        const w = t.wishId ? (db.wishlist[ap] || []).find(x => x.id === t.wishId) : null;
+        const c = (w ? w.category : t.category) || '其他';
+        catCount[c] = (catCount[c] || 0) + 1;
+      });
+      const catStr = Object.entries(catCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${n}`).join(' · ');
+      const favs = (db.wishlist[ap] || []).filter(w => (w.rating || 0) >= 4).slice(0, 3);
+      recapHtml = `<div class="recap-card">
+        <div class="recap-title">🏁 旅程回顧</div>
+        <div class="recap-line">${allDays.length} 天 · ${allTrips.length} 個行程地點${visitedCnt ? ` · 走訪 <b>${visitedCnt}</b> 個` : ''}</div>
+        ${catStr ? `<div class="recap-line">${esc(catStr)}</div>` : ''}
+        ${favs.length ? `<div class="recap-line">❤️ 最愛：${esc(favs.map(w => w.name).join('、'))}</div>` : ''}
+        <button class="recap-share" id="recap-share">分享回顧</button>
+      </div>`;
+    }
+  }
+
   const memberCount = p.members ? Object.keys(p.members).length : 1;
 
   el.innerHTML = `
@@ -846,6 +882,7 @@ function renderHome() {
       ${p.destination?`<div style="font-size:12px;color:var(--text3);margin-bottom:2px">${esc(p.destination)}</div>`:''}
       ${dateStr?`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">${dateStr}</div>`:'<div style="margin-bottom:10px"></div>'}
       ${countdownHtml}
+      ${recapHtml}
       <div class="hstats">
         <div class="hstat"><div class="hsv">${allDays.length}</div><div class="hsl">天行程</div></div>
         <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">地點清單</div></div>
@@ -862,6 +899,7 @@ function renderHome() {
     </div>`;
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
+  on('recap-share', 'click', shareRecap);
   const memBtn = el.querySelector('#btn-open-members');
   if (memBtn) memBtn.addEventListener('click', openMembersModal);
   clLoad(ap, el.querySelector('#cl-body'));
@@ -970,7 +1008,7 @@ function renderWish() {
           <button class="ib del" data-del-wish="${w.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
         </div>
         <div class="vc-row2">
-          ${w.mapUrl ? `<a class="vc-map" href="${esc(w.mapUrl)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''}
+          ${(() => { const u = itemMapUrl(w.mapUrl, w.name); return u ? `<a class="vc-map" href="${esc(u)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''; })()}
           <span class="vc-dur">${DUR[w.duration] || w.duration + '分'}</span>
           ${w.address ? `<span class="vc-sep">·</span><span class="vc-addr">${esc(w.address)}</span>` : ''}
           ${scheduledBadge}
@@ -1083,12 +1121,17 @@ function renderTimeline() {
   const prevScrollLeft = $('mini-date-bar') ? $('mini-date-bar').scrollLeft : 0;
 
   // 迷你日期欄（所有天）
+  fetchWeather(); // 非同步取得天氣，完成後會自動重繪
+  const _hasWx = Object.keys(weatherByDate).length > 0;
   const miniBar = days.map((d, i) => {
     const cnt = (db.trips[ap] || []).filter(t => t.date === d).length;
     const [, m, dd] = d.split('-').map(Number);
     const badge = cnt ? `<div class="mini-day-badge">${cnt}</div>` : `<div style="height:14px"></div>`;
+    const wx = weatherByDate[d];
+    const wxHtml = _hasWx ? `<div class="mdb-wx">${wx ? `${wxEmoji(wx.code)}${wx.t}°` : '·'}</div>` : '';
     return `<button class="mini-day-btn ${i === currentDayIdx && timelineView === 'day' ? 'active' : ''}" data-mini-day="${i}">
       <div class="mdb-d">${m}/${dd}</div>
+      ${wxHtml}
       ${badge}
     </button>`;
   }).join('');
@@ -1106,7 +1149,7 @@ function renderTimeline() {
   let html = `
     <div id="mini-date-bar">${miniBar}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
-      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:gray"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
+      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3)"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
       ${viewToggle}
     </div>
     ${timelineView === 'day' && _customName ? `<div id="day-name-subtitle">- ${esc(_customName)}</div>` : ''}`;
@@ -1119,7 +1162,7 @@ function renderTimeline() {
       const dayTrips = sortedDayTrips(d);
       const [, m, dd] = d.split('-').map(Number);
       const wk = WKDAY[new Date(...d.split('-').map(Number).map((v,j)=>j===1?v-1:v)).getDay()];
-      const _ovCustomName = _dayNames[d] ? ` · ${_dayNames[d]}` : '';
+      const _ovCustomName = _dayNames[d] ? `<span class="ov-day-name">${esc(_dayNames[d])}</span>` : '';
       const label = `Day ${i+1}  ${m}/${dd}（週${wk}）${_ovCustomName}`;
       const names = dayTrips.map(t => t.name).join('・') || '尚未安排';
       const totalMin = dayTrips.reduce((s, t) => s + (Number(t.duration) || 0), 0);
@@ -1141,33 +1184,48 @@ function renderTimeline() {
 
     // 每日時間摘要
     const totalMin = dayTrips.reduce((s, t) => s + (Number(t.duration) || 0), 0);
+    const _transit = db.projects.find(x => x.id === ap)?.transit || {};
+    let transitTotal = 0;
+    for (let ti = 1; ti < dayTrips.length; ti++) {
+      const info = transitInfo(dayTrips[ti - 1], dayTrips[ti], _transit);
+      if (info) transitTotal += info.min;
+    }
+    const _visitedCnt = dayTrips.filter(x => x.visited).length;
     const timeSummary = totalMin
-      ? `<div class="day-time-summary">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span></div>`
+      ? `<div class="day-time-summary">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal} 分</span>` : ''} · 已走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></div>`
       : '';
 
-    html += `<div class="shd" style="margin-top:0;padding-top:0"><h2>行程安排</h2><button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div>`;
+    html += `<div class="shd" style="margin-top:0;padding-top:0"><h2>行程安排</h2><div style="display:flex;gap:6px;align-items:center">${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div></div>`;
     html += timeSummary;
 
     if (!dayTrips.length) {
       html += `<div class="empty" style="padding:24px 0"><div class="ei">${IC.pin}</div><p>今天還沒有行程<br>從地點清單排入</p></div>`;
     } else {
       html += `<div id="trip-list">`;
-      dayTrips.forEach(t => {
+      let _lastBucket = '';
+      const _todBucket = tm => { const h = parseInt(tm, 10); return h < 12 ? '上午' : h < 17 ? '下午' : '晚上'; };
+      dayTrips.forEach((t, ti) => {
+        if (t.time) {
+          const b = _todBucket(t.time);
+          if (b !== _lastBucket) { html += `<div class="tod-divider">${b}</div>`; _lastBucket = b; }
+        }
+        if (ti > 0) html += transitRowHtml(dayTrips[ti - 1], t, _transit);
         const wishItem = t.wishId ? (db.wishlist[ap] || []).find(x => x.id === t.wishId) : null;
         const rating   = wishItem ? wishItem.rating || 0 : 0;
         const dispCat  = wishItem ? wishItem.category : t.category;
         const dispNote = wishItem ? wishItem.note : t.note;
         const heartHtml = buildHeartHtml('trip-heart', t.wishId || t.id, rating);
-        html += `<div class="card trip-card" data-trip-id="${t.id}">
+        html += `<div class="card trip-card cat-${CC[dispCat] || 't-teal'}${t.visited ? ' visited' : ''}" data-trip-id="${t.id}">
           <div class="vc-row1">
             <div class="drag-handle" title="拖曳排序">${IC.grip}</div>
             <span class="vc-name-wrap"><span class="vc-name">${esc(t.name)}</span><span class="tag ${CC[dispCat] || 't-teal'}">${esc(dispCat)}</span></span>
+            <button class="visit-check${t.visited ? ' checked' : ''}" data-visit="${t.id}" title="打卡標記已走訪">✓</button>
             ${heartHtml}
             <button class="ib" data-edit-trip="${t.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button class="ib del" data-del-trip="${t.id}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
           </div>
           <div class="vc-row2">
-            ${t.mapUrl ? `<a class="vc-map" href="${esc(t.mapUrl)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''}
+            ${(() => { const u = itemMapUrl(t.mapUrl || (wishItem && wishItem.mapUrl), t.name); return u ? `<a class="vc-map" href="${esc(u)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''; })()}
             ${t.time ? `<span class="vc-meta">${t.time}</span><span class="vc-sep">·</span>` : ''}
             <span class="vc-dur">${DUR[t.duration] || t.duration + '分'}</span>
             ${(() => { const addr = (wishItem && wishItem.address) || t.address || ''; return addr ? `<span class="vc-sep">·</span><span class="vc-addr">${esc(addr)}</span>` : ''; })()}
@@ -1244,8 +1302,20 @@ function renderTimeline() {
 
   on('timeline-add-btn', 'click', () => showTab('wish'));
   on('timeline-add-btn-bottom', 'click', () => showTab('wish'));
+  on('move-day-btn', 'click', openMoveDay);
+  on('share-day-btn', 'click', shareDay);
   el.querySelectorAll('[data-edit-trip]').forEach(b => b.addEventListener('click', () => editTrip(b.dataset.editTrip)));
   el.querySelectorAll('[data-del-trip]').forEach(b  => b.addEventListener('click', () => delTrip(b.dataset.delTrip)));
+  el.querySelectorAll('.transit-row').forEach(row => row.addEventListener('click', (e) => {
+    if (e.target.closest('.tr-edit') || e.target.tagName === 'INPUT') return;
+    openTransitDir(row.dataset.from, row.dataset.to, row.dataset.mode);
+  }));
+  el.querySelectorAll('[data-tr-edit]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation(); editTransit(b.dataset.trEdit, b);
+  }));
+  el.querySelectorAll('[data-visit]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation(); toggleVisited(b.dataset.visit, b);
+  }));
 
   // Heart toggle
   bindHearts(el, 'trip-heart', async (wishId, newRating) => {
@@ -2076,6 +2146,10 @@ function editWish(id) { const w = (db.wishlist[ap] || []).find(x => x.id === id)
 async function saveWish() {
   const name = $('wi-name').value.trim();
   if (!name) { alert('請輸入地點名稱'); return; }
+  // 新增時檢查同名地點，避免不同來源加入造成重複
+  if (!eid && (db.wishlist[ap] || []).some(w => normName(w.name) === normName(name))) {
+    if (!(await showConfirm('已在清單中，仍要加入？'))) return;
+  }
   const existing = eid ? (db.wishlist[ap] || []).find(x => x.id === eid) : null;
   const item = {
     id: eid || uid(), name,
@@ -2334,6 +2408,14 @@ async function delTrip(id) {
   const snapshot = JSON.parse(JSON.stringify(t));
   const snapAp   = ap;
   db.trips[ap] = (db.trips[ap] || []).filter(x => x.id !== id);
+  // 清除與此行程相關的移動時間覆寫（自我清理，避免殘留孤兒 key）
+  const _p = db.projects.find(x => x.id === snapAp);
+  if (_p?.transit) {
+    Object.keys(_p.transit).filter(k => k.startsWith(id + '_') || k.endsWith('_' + id)).forEach(k => {
+      delete _p.transit[k];
+      window.projDelete(snapAp, `transit/${k}`).catch(() => {});
+    });
+  }
   await saveDB(); renderTimeline();
   showUndoToast(`已移除「${t.name}」`, async () => {
     if (!db.trips[snapAp]) db.trips[snapAp] = [];
@@ -2505,6 +2587,227 @@ async function saveMultiSched() {
 // =============================================================
 function om(id) { $(id).classList.add('open'); }
 function cm(id) { $(id).classList.remove('open'); eid = null; }
+
+// =============================================================
+//  整天移至其他日期
+// =============================================================
+function openMoveDay() {
+  const days = getTripDays();
+  const from = days[currentDayIdx];
+  const cnt = sortedDayTrips(from).length;
+  if (!cnt) return;
+  const dayNames = db.projects.find(x => x.id === ap)?.dayNames || {};
+  $('md-hint').textContent = `將 Day ${currentDayIdx + 1} 的 ${cnt} 個地點全部移至：`;
+  $('md-days').innerHTML = days.map((d, i) => {
+    if (i === currentDayIdx) return '';
+    const [, dm, dd] = d.split('-').map(Number);
+    const dn = dayNames[d] ? `（${dayNames[d]}）` : '';
+    const tc = sortedDayTrips(d).length;
+    return `<div class="day-check md-day" data-date="${d}" data-idx="${i}" style="cursor:pointer"><span class="day-chip-label">Day ${i + 1}  ${dm}/${dd}${esc(dn)}${tc ? ` · 已有 ${tc} 個地點` : ''}</span></div>`;
+  }).join('');
+  $('md-days').querySelectorAll('.md-day').forEach(row =>
+    row.addEventListener('click', () => moveWholeDay(row.dataset.date, Number(row.dataset.idx))));
+  $('mc-moveday').onclick = () => cm('m-moveday');
+  om('m-moveday');
+}
+
+async function moveWholeDay(toDate, toIdx) {
+  const days = getTripDays();
+  const from = days[currentDayIdx];
+  const moving = sortedDayTrips(from);
+  cm('m-moveday');
+  if (!moving.length) return;
+  const ok = await showConfirm(`確定將 ${moving.length} 個地點從 Day ${currentDayIdx + 1} 全部移至 Day ${toIdx + 1}？`);
+  if (!ok) return;
+  const baseOrder = sortedDayTrips(toDate).length;
+  moving.forEach((t, i) => { t.date = toDate; t.order = baseOrder + i; });
+  await Promise.all(moving.map(t => window.projMerge(ap, `trips/${t.id}`, { date: toDate, order: t.order })));
+  currentDayIdx = toIdx;
+  renderTimeline();
+  showToast(`✅ 已全部移至 Day ${toIdx + 1}`);
+}
+
+// =============================================================
+//  站點間移動時間（自動估算 + 手動覆寫）
+// =============================================================
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function tripCoords(t) {
+  const w = t.wishId ? (db.wishlist[ap] || []).find(x => x.id === t.wishId) : null;
+  const lat = t.lat ?? (w ? w.lat : null), lng = t.lng ?? (w ? w.lng : null);
+  if (lat != null && lng != null) return { lat: Number(lat), lng: Number(lng) };
+  const m = (t.mapUrl || (w && w.mapUrl) || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  return m ? { lat: Number(m[1]), lng: Number(m[2]) } : null;
+}
+
+// 回傳 { min, mode, manual } 或 null（雙方都無座標且無手動覆寫時）
+function transitInfo(a, b, overrides) {
+  const ov = overrides ? overrides[`${a.id}_${b.id}`] : null;
+  if (ov && ov.min > 0) return { min: ov.min, mode: ov.mode || 'transit', manual: true };
+  const ca = tripCoords(a), cb = tripCoords(b);
+  if (!ca || !cb) return null;
+  const km = haversineKm(ca.lat, ca.lng, cb.lat, cb.lng);
+  if (km < 1.5) return { min: Math.max(1, Math.round(km / 4.5 * 60)), mode: 'walk', manual: false };
+  return { min: Math.round(km / 20 * 60 + 10), mode: 'transit', manual: false };
+}
+
+function transitRowHtml(a, b, overrides) {
+  const info = transitInfo(a, b, overrides);
+  if (!info) return '';
+  const icon = info.mode === 'walk' ? '🚶' : '🚋';
+  const label = info.manual ? `${icon} ${info.min}分` : `${icon} ≈${info.min}分`;
+  return `<div class="transit-row ${info.manual ? 'manual' : ''}" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}" title="點擊查看 Google Maps 路線">${label}<button class="tr-edit" data-tr-edit="${a.id}_${b.id}" title="自訂移動時間"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button></div>`;
+}
+
+function openTransitDir(fromId, toId, mode) {
+  const a = (db.trips[ap] || []).find(x => x.id === fromId);
+  const b = (db.trips[ap] || []).find(x => x.id === toId);
+  if (!a || !b) return;
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(extractWaypoint(a))}&destination=${encodeURIComponent(extractWaypoint(b))}&travelmode=${mode === 'walk' ? 'walking' : 'transit'}`;
+  window.open(url, '_blank');
+}
+
+function editTransit(key, btn) {
+  const row = btn.closest('.transit-row');
+  if (!row) return;
+  const p = db.projects.find(x => x.id === ap);
+  const cur = (p?.transit || {})[key];
+  const mode = cur ? (cur.mode || 'transit') : row.dataset.mode;
+  row.innerHTML = `<input type="number" class="tr-input" min="0" max="600" value="${cur ? cur.min : row.dataset.min}"> 分（清空可還原自動估算）`;
+  const inp = row.querySelector('input');
+  inp.focus(); inp.select();
+  const save = async () => {
+    const v = inp.value.trim();
+    if (v === '' || Number(v) <= 0) {
+      if (cur) { await window.projDelete(ap, `transit/${key}`); if (p?.transit) delete p.transit[key]; }
+    } else {
+      const rec = { min: Math.round(Number(v)), mode };
+      await window.projPatch(ap, `transit/${key}`, rec);
+      if (!p.transit) p.transit = {};
+      p.transit[key] = rec;
+    }
+    renderTimeline();
+  };
+  inp.addEventListener('blur', save, { once: true });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+    if (e.key === 'Escape') { inp.removeEventListener('blur', save); renderTimeline(); }
+  });
+}
+
+// =============================================================
+//  打卡（已走訪）
+// =============================================================
+async function toggleVisited(id, btn) {
+  const t = (db.trips[ap] || []).find(x => x.id === id);
+  if (!t) return;
+  t.visited = !t.visited;
+  const card = btn.closest('.trip-card');
+  if (card) card.classList.toggle('visited', t.visited);
+  btn.classList.toggle('checked', t.visited);
+  btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
+  const dayTrips = sortedDayTrips(t.date);
+  const vp = $('visit-progress');
+  if (vp) vp.textContent = `${dayTrips.filter(x => x.visited).length}/${dayTrips.length}`;
+  await window.projMerge(ap, `trips/${t.id}`, { visited: !!t.visited });
+}
+
+// =============================================================
+//  每日天氣（Open-Meteo，免金鑰、僅未來 16 天）
+// =============================================================
+function wxEmoji(code) {
+  if (code === 0) return '☀️';
+  if (code <= 2) return '🌤️';
+  if (code === 3) return '☁️';
+  if (code <= 48) return '🌫️';
+  if (code <= 67 || (code >= 80 && code <= 82)) return '🌧️';
+  if (code <= 77 || (code >= 85 && code <= 86)) return '🌨️';
+  if (code >= 95) return '⛈️';
+  return '🌦️';
+}
+
+async function fetchWeather() {
+  const days = getTripDays();
+  if (!days.length) return;
+  // 取第一個有座標的地點（城市級即可，整趟旅程共用一組座標）
+  let c = null;
+  for (const t of (db.trips[ap] || [])) { c = tripCoords(t); if (c) break; }
+  if (!c) {
+    for (const w of (db.wishlist[ap] || [])) {
+      if (w.lat != null && w.lng != null) { c = { lat: Number(w.lat), lng: Number(w.lng) }; break; }
+      const m = (w.mapUrl || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (m) { c = { lat: Number(m[1]), lng: Number(m[2]) }; break; }
+    }
+  }
+  if (!c) return;
+  const pad = n => String(n).padStart(2, '0');
+  const dstr = dt => `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  const sd = days[0] > dstr(new Date()) ? days[0] : dstr(new Date());
+  const maxD = dstr(new Date(Date.now() + 15 * 86400000));
+  const ed = days[days.length - 1] < maxD ? days[days.length - 1] : maxD;
+  if (sd > ed) return;
+  const key = `${ap}|${sd}|${ed}`;
+  if (weatherFetchKey === key) return;
+  weatherFetchKey = key;
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lng}&daily=weather_code,temperature_2m_max&timezone=auto&start_date=${sd}&end_date=${ed}`);
+    const j = await r.json();
+    const out = {};
+    (j.daily?.time || []).forEach((d, i) => { out[d] = { code: j.daily.weather_code[i], t: Math.round(j.daily.temperature_2m_max[i]) }; });
+    weatherByDate = out;
+    const pg = $('pg-timeline');
+    if (pg && pg.style.display !== 'none') renderTimeline();
+  } catch (e) { /* 天氣為輔助資訊，取得失敗時靜默略過 */ }
+}
+
+// =============================================================
+//  旅程回顧分享
+// =============================================================
+async function shareRecap() {
+  const p = db.projects.find(x => x.id === ap);
+  if (!p) return;
+  const allTrips = db.trips[ap] || [];
+  const visitedCnt = allTrips.filter(t => t.visited).length;
+  const favs = (db.wishlist[ap] || []).filter(w => (w.rating || 0) >= 4).map(w => w.name);
+  const lines = [`🏁 ${p.name} 旅程回顧`, `${getTripDays().length} 天 · ${allTrips.length} 個行程地點${visitedCnt ? `，走訪 ${visitedCnt} 個` : ''}`];
+  if (favs.length) lines.push(`❤️ 最愛：${favs.join('、')}`);
+  const text = lines.join('\n');
+  if (navigator.share) {
+    try { await navigator.share({ text }); } catch (e) { /* 使用者取消分享 */ }
+  } else if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    showToast('✅ 已複製回顧文字');
+  }
+}
+
+// =============================================================
+//  分享今日行程（Web Share API，不支援時複製到剪貼簿）
+// =============================================================
+async function shareDay() {
+  const days = getTripDays();
+  const d = days[currentDayIdx];
+  const trips = sortedDayTrips(d);
+  if (!trips.length) return;
+  const dayNames = db.projects.find(x => x.id === ap)?.dayNames || {};
+  const title = `${fmtDayLabel(d, currentDayIdx, days.length)}${dayNames[d] ? '｜' + dayNames[d] : ''}`;
+  const lines = trips.map((t, i) => {
+    const w = t.wishId ? (db.wishlist[ap] || []).find(x => x.id === t.wishId) : null;
+    const u = itemMapUrl(t.mapUrl || (w && w.mapUrl), t.name);
+    return `${i + 1}. ${t.time ? t.time + ' ' : ''}${t.name}${u ? '\n' + u : ''}`;
+  });
+  const text = `${title}\n${lines.join('\n')}`;
+  if (navigator.share) {
+    try { await navigator.share({ text }); } catch (e) { /* 使用者取消分享 */ }
+  } else if (navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    showToast('✅ 已複製今日行程文字');
+  }
+}
 
 function showConfirm(msg) {
   return new Promise(resolve => {
@@ -2734,8 +3037,26 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js').then((registration) => {
       registration.update(); // 主動檢查是否有新版 sw.js，加速更新生效（不用等瀏覽器自然排程）
+      registration.addEventListener('updatefound', () => {
+        const nw = registration.installing;
+        // 首次安裝時 controller 為 null，不需提示更新
+        if (!nw || !navigator.serviceWorker.controller) return;
+        nw.addEventListener('statechange', () => {
+          if (nw.state === 'activated') showUpdateBanner();
+        });
+      });
     }).catch(e => console.warn('Service Worker 註冊失敗', e));
   });
+}
+
+// 新版 Service Worker 啟用後顯示更新提示，點擊即重新載入取得新版頁面
+function showUpdateBanner() {
+  if (document.getElementById('update-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'update-banner';
+  b.textContent = '🔄 有新版本，點一下立即更新';
+  b.onclick = () => location.reload();
+  document.body.appendChild(b);
 }
 
 // ── 處理 signInWithRedirect 跳轉回來時的 back-forward cache 還原問題 ──
