@@ -1,3 +1,4 @@
+
 // ── 偵測 LINE / Instagram / Facebook 等內嵌瀏覽器（in-app webview）──
 // Google 自 2021 年起政策性封鎖所有嵌入式 webview 對 OAuth 登入端點的請求，
 // 這些環境裡不管程式碼寫得多正確，登入都會被 Google 主動擋下，顯示令人困惑的錯誤。
