@@ -861,10 +861,12 @@ function renderHome() {
       });
       const catStr = Object.entries(catCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${n}`).join(' · ');
       const favs = (db.wishlist[ap] || []).filter(w => (w.rating || 0) >= 4).slice(0, 3);
+      const highlights = allTrips.filter(t => t.score).sort((a, b) => b.score - a.score).slice(0, 3);
       recapHtml = `<div class="recap-card">
         <div class="recap-title">🏁 旅程回顧</div>
         <div class="recap-line">${allDays.length} 天 · ${allTrips.length} 個行程地點${visitedCnt ? ` · 走訪 <b>${visitedCnt}</b> 個` : ''}</div>
         ${catStr ? `<div class="recap-line">${esc(catStr)}</div>` : ''}
+        ${highlights.length ? `<div class="recap-line">⭐ 旅程亮點：${esc(highlights.map(t => `${t.name} ${t.score}★`).join('、'))}</div>` : ''}
         ${favs.length ? `<div class="recap-line">❤️ 最愛：${esc(favs.map(w => w.name).join('、'))}</div>` : ''}
         <button class="recap-share" id="recap-share">分享回顧</button>
       </div>`;
@@ -1195,7 +1197,7 @@ function renderTimeline() {
       ? `<div class="day-time-summary">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal} 分</span>` : ''} · 已走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></div>`
       : '';
 
-    html += `<div class="shd" style="margin-top:0;padding-top:0"><h2>行程安排</h2><div style="display:flex;gap:6px;align-items:center">${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div></div>`;
+    html += `<div class="shd" style="margin-top:0;padding-top:0"><h2>行程安排</h2><div style="display:flex;gap:6px;align-items:center">${dayTrips.some(t => t.visited) ? `<button class="ib" id="reflect-btn" title="每日回顧評分" style="font-size:13px">⭐</button>` : ''}${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div></div>`;
     html += timeSummary;
 
     if (!dayTrips.length) {
@@ -1226,6 +1228,7 @@ function renderTimeline() {
           </div>
           <div class="vc-row2">
             ${(() => { const u = itemMapUrl(t.mapUrl || (wishItem && wishItem.mapUrl), t.name); return u ? `<a class="vc-map" href="${esc(u)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''; })()}
+            ${t.score ? `<span class="vc-score">⭐${t.score}</span><span class="vc-sep">·</span>` : ''}
             ${t.time ? `<span class="vc-meta">${t.time}</span><span class="vc-sep">·</span>` : ''}
             <span class="vc-dur">${DUR[t.duration] || t.duration + '分'}</span>
             ${(() => { const addr = (wishItem && wishItem.address) || t.address || ''; return addr ? `<span class="vc-sep">·</span><span class="vc-addr">${esc(addr)}</span>` : ''; })()}
@@ -1237,6 +1240,15 @@ function renderTimeline() {
       });
       html += `</div>
       <button class="add-btn" id="timeline-add-btn-bottom" style="width:100%;justify-content:center;margin-top:6px;background:var(--surface2);color:var(--text);border:1px solid var(--border)">＋ 從地點清單新增</button>`;
+    }
+
+    // 晚間回顧提示：當天 20:00 後仍有已走訪未評分的地點時顯示（關閉狀態記錄在 localStorage，不佔 Firebase 寫入額度）
+    const _pad2 = n => String(n).padStart(2, '0');
+    const _now = new Date();
+    const _todayStr = `${_now.getFullYear()}-${_pad2(_now.getMonth() + 1)}-${_pad2(_now.getDate())}`;
+    const _unratedCnt = dayTrips.filter(t => t.visited && !t.score).length;
+    if (dateStr === _todayStr && _now.getHours() >= 20 && _unratedCnt > 0 && !localStorage.getItem(`reflectDismiss:${ap}:${dateStr}`)) {
+      html += `<div class="reflect-prompt" id="reflect-prompt">今天走訪了 ${_unratedCnt} 個地方，幫它們打個分吧 ⭐<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="rp-go" id="rp-go">開始回顧</button><button class="rp-later" id="rp-later">稍後再說</button></div></div>`;
     }
   }
 
@@ -1304,6 +1316,9 @@ function renderTimeline() {
   on('timeline-add-btn-bottom', 'click', () => showTab('wish'));
   on('move-day-btn', 'click', openMoveDay);
   on('share-day-btn', 'click', shareDay);
+  on('reflect-btn', 'click', () => openReflect(days[currentDayIdx], currentDayIdx));
+  on('rp-go', 'click', () => { const rp = $('reflect-prompt'); if (rp) rp.remove(); openReflect(days[currentDayIdx], currentDayIdx); });
+  on('rp-later', 'click', () => { localStorage.setItem(`reflectDismiss:${ap}:${days[currentDayIdx]}`, '1'); const rp = $('reflect-prompt'); if (rp) rp.remove(); });
   el.querySelectorAll('[data-edit-trip]').forEach(b => b.addEventListener('click', () => editTrip(b.dataset.editTrip)));
   el.querySelectorAll('[data-del-trip]').forEach(b  => b.addEventListener('click', () => delTrip(b.dataset.delTrip)));
   el.querySelectorAll('.transit-row').forEach(row => row.addEventListener('click', (e) => {
@@ -2718,6 +2733,61 @@ async function toggleVisited(id, btn) {
 }
 
 // =============================================================
+//  每日回顧評分（score 存於 trip 節點，與收藏愛心的 rating 欄位隔離）
+// =============================================================
+let reflectPending = {}; // 暫存本次修改，按「完成」時一次寫入
+
+function openReflect(dateStr, dayIdx) {
+  const visited = sortedDayTrips(dateStr).filter(t => t.visited);
+  if (!visited.length) { showToast('這天還沒有打卡的地點'); return; }
+  reflectPending = {};
+  const [, m, dd] = dateStr.split('-').map(Number);
+  $('reflect-title').textContent = `Day ${dayIdx + 1} 回顧 — ${m}/${dd}`;
+  $('reflect-list').innerHTML = visited.map(t => `
+    <div class="reflect-row">
+      <span class="reflect-name">${esc(t.name)}</span>
+      <span class="reflect-stars">${[1, 2, 3, 4, 5].map(s => `<button class="rstar${(t.score || 0) >= s ? ' on' : ''}" data-rid="${t.id}" data-s="${s}">★</button>`).join('')}</span>
+    </div>`).join('');
+  const unvisited = sortedDayTrips(dateStr).length - visited.length;
+  $('reflect-foot').textContent = unvisited > 0 ? `未走訪的 ${unvisited} 個地點不列入評分` : '';
+  $('reflect-list').querySelectorAll('.rstar').forEach(b => b.addEventListener('click', () => {
+    const rid = b.dataset.rid, s = Number(b.dataset.s);
+    reflectPending[rid] = s;
+    $('reflect-list').querySelectorAll(`.rstar[data-rid="${rid}"]`).forEach(x => x.classList.toggle('on', Number(x.dataset.s) <= s));
+    b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+  }));
+  $('mc-reflect').onclick = () => cm('m-reflect');
+  $('reflect-done').onclick = () => saveReflect(dateStr);
+  om('m-reflect');
+}
+
+async function saveReflect(dateStr) {
+  const ids = Object.keys(reflectPending);
+  ids.forEach(id => {
+    const t = (db.trips[ap] || []).find(x => x.id === id);
+    if (t) t.score = reflectPending[id];
+  });
+  cm('m-reflect');
+  if (ids.length) {
+    await Promise.all(ids.map(id => window.projMerge(ap, `trips/${id}`, { score: reflectPending[id] })));
+    showToast('✅ 已記錄回顧評分');
+  }
+  renderTimeline();
+  maybeOfferCatchup(dateStr);
+}
+
+// 完成當天回顧後，詢問是否補評先前天數（先評當天的，再問要不要補評）
+async function maybeOfferCatchup(dateStr) {
+  const days = getTripDays();
+  const backlog = days.filter(d => d < dateStr && sortedDayTrips(d).some(t => t.visited && !t.score));
+  if (!backlog.length) return;
+  const total = backlog.reduce((s, d) => s + sortedDayTrips(d).filter(t => t.visited && !t.score).length, 0);
+  const ok = await showConfirm(`先前還有 ${total} 個走訪過的地點未評分，要現在補評嗎？`);
+  if (!ok) return;
+  openReflect(backlog[0], days.indexOf(backlog[0]));
+}
+
+// =============================================================
 //  每日天氣（Open-Meteo，免金鑰、僅未來 16 天）
 // =============================================================
 function wxEmoji(code) {
@@ -2774,7 +2844,9 @@ async function shareRecap() {
   const allTrips = db.trips[ap] || [];
   const visitedCnt = allTrips.filter(t => t.visited).length;
   const favs = (db.wishlist[ap] || []).filter(w => (w.rating || 0) >= 4).map(w => w.name);
+  const highlights = allTrips.filter(t => t.score).sort((a, b) => b.score - a.score).slice(0, 3);
   const lines = [`🏁 ${p.name} 旅程回顧`, `${getTripDays().length} 天 · ${allTrips.length} 個行程地點${visitedCnt ? `，走訪 ${visitedCnt} 個` : ''}`];
+  if (highlights.length) lines.push(`⭐ 亮點：${highlights.map(t => `${t.name} ${t.score}★`).join('、')}`);
   if (favs.length) lines.push(`❤️ 最愛：${favs.join('、')}`);
   const text = lines.join('\n');
   if (navigator.share) {
