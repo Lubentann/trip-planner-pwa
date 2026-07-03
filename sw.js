@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v22'; // 站點間移動時間估算與手動覆寫
+const CACHE_NAME = 'trip-planner-v23'; // 打卡走訪、每日天氣、旅程回顧、分類色卡、時段分隔
 const ASSETS = [
   './',
   './index.html',
