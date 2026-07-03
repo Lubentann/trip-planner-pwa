@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v23'; // 打卡走訪、每日天氣、旅程回顧、分類色卡、時段分隔
+const CACHE_NAME = 'trip-planner-v24'; // 每日回顧評分系統（星星評分、晚間提示、補評流程）
 const ASSETS = [
   './',
   './index.html',
