@@ -454,7 +454,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 #tour-overlay.active{pointer-events:all;display:block}
 #tour-mask{position:absolute;inset:0;background:rgba(0,0,0,0.58)}
 #tour-spotlight{position:absolute;border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,0.58);transition:all .28s cubic-bezier(.4,0,.2,1);pointer-events:none}
-#tour-bubble{position:absolute;background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--rl);padding:14px 16px;width:min(280px,90vw);z-index:9001;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:all .28s cubic-bezier(.4,0,.2,1)}
+#tour-bubble{position:absolute;background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--rl);padding:14px 16px;width:min(280px,90vw);max-height:calc(100vh - 20px);overflow-y:auto;z-index:9001;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:all .28s cubic-bezier(.4,0,.2,1)}
 #tour-bubble .tb-step{font-size:10px;font-weight:500;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:6px}
 #tour-bubble .tb-progress-wrap{flex:1;margin-left:12px;height:4px;background:var(--border2);border-radius:2px;overflow:hidden}
 #tour-bubble .tb-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease}
