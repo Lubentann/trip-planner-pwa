@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v24'; // 每日回顧評分系統（星星評分、晚間提示、補評流程）
+const CACHE_NAME = 'trip-planner-v25'; // UI 批次同步（ETA/順路排序/換日箭頭等）＋教學導覽新步驟與小螢幕修正
 const ASSETS = [
   './',
   './index.html',
