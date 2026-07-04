@@ -3309,7 +3309,16 @@ const PWA_TOUR_STEPS = [
     descHtml: `<p style="margin:0 0 8px">每個地點卡片上有三個快速操作：</p><div style="display:grid;grid-template-columns:24px 1fr;gap:2px 8px;margin-top:8px;align-items:center"><span style="color:var(--coral);font-size:15px;display:flex;justify-content:center">♥</span><span>收藏 — 標記最想去的地點</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span>編輯 — 修改名稱、類別、備註</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span><span>刪除 — 移除這個地點</span></div>` },
   { title: '行程安排：每日時間軸',
     target: '#tab-timeline', tabSwitch: 'timeline',
-    descHtml: '<p style="margin:0 0 8px">從地點清單加入地點後，在這裡設定出發時間與停留時長。</p><p style="margin:0">拖曳卡片可重新排序，點擊上方日期列可切換不同天。</p>' },
+    descHtml: '<p style="margin:0 0 8px">從地點清單加入地點後，在這裡安排每天的順序與停留時長。</p><p style="margin:0">拖曳卡片可重新排序，接下來幾步介紹時間軸的重點功能。</p>' },
+  { title: '切換日期',
+    target: '#date-label-main', tabSwitch: 'timeline',
+    descHtml: '<p style="margin:0">點日期兩旁的 ‹ › 可逐日切換，上方迷你日期列可直接跳到任一天；右側「全覽」則一次綜覽整趟旅程。</p>' },
+  { title: '出發時間與預計抵達',
+    target: '#day-start-btn', tabSwitch: 'timeline',
+    descHtml: '<p style="margin:0">點「🕘 出發」設定當天幾點出門，每張卡片會自動推算「⏱ 預計抵達」時間；有自訂時間的地點會成為錨點，後面的時間跟著重算。</p>' },
+  { title: '移動時間與順路排序',
+    target: '.transit-row', tabSwitch: 'timeline',
+    descHtml: '<p style="margin:0">相鄰地點會自動估算移動時間，點旁邊的鉛筆可改成實際查到的分鐘數。當移動時間明顯偏多，摘要下方會出現「一鍵順路排序」幫你排出較順的路線。</p>' },
   { title: '行程卡片操作',
     target: '.trip-card', tabSwitch: 'timeline',
     descHtml: `<p style="margin:0 0 8px">每張行程卡片提供四個操作：</p><div style="display:grid;grid-template-columns:24px 1fr;gap:2px 8px;margin-top:8px;align-items:center"><span style="display:flex;justify-content:center">${IC.grip}</span><span>拖曳 — 長按後上下移動可排序</span><span style="color:var(--coral);font-size:15px;display:flex;justify-content:center">♥</span><span>收藏 — 同步更新地點清單的收藏</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span>編輯 — 調整時間與停留時長</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span><span>刪除 — 從今日行程移除</span></div>` },
@@ -3342,6 +3351,8 @@ function getTourTargetRect(selector) {
   if (!selector) return null;
   const el = document.querySelector(selector);
   if (!el) return null;
+  // 小螢幕：目標可能在折疊線下，量測前先捲入可視範圍
+  try { el.scrollIntoView({ block: 'nearest' }); } catch (e) {}
   const r = el.getBoundingClientRect();
   return { top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 };
 }
