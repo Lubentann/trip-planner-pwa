@@ -1,4 +1,3 @@
-
 // ── 偵測 LINE / Instagram / Facebook 等內嵌瀏覽器（in-app webview）──
 // Google 自 2021 年起政策性封鎖所有嵌入式 webview 對 OAuth 登入端點的請求，
 // 這些環境裡不管程式碼寫得多正確，登入都會被 Google 主動擋下，顯示令人困惑的錯誤。
@@ -824,7 +823,11 @@ function renderHome() {
     return;
   }
 
-  const wishes  = (db.wishlist[ap] || []).length;
+  // 與 renderWish 的範例隱藏規則一致：有真實地點時不把範例算進數字
+  const _wishArr = db.wishlist[ap] || [];
+  const wishes  = _wishArr.some(w => w && w.name && w.id !== '_tour_sample')
+    ? _wishArr.filter(w => w.id !== '_tour_sample').length
+    : _wishArr.length;
   const trips   = (db.trips[ap]   || []).length;
   const allDays = getTripDays();
   const fmtDate = d => { if (!d) return ''; const [y,m,dd] = d.split('-'); return `${y}/${m}/${dd}`; };
@@ -876,6 +879,15 @@ function renderHome() {
 
   const memberCount = p.members ? Object.keys(p.members).length : 1;
 
+  // 旅程結束後準備清單已無日常用途 → 預設摺疊，點標題可展開
+  let _tripEnded = false;
+  if (p.startDate && p.endDate) {
+    const _t = new Date(); _t.setHours(0, 0, 0, 0);
+    const _e = new Date(p.endDate); _e.setHours(0, 0, 0, 0);
+    _tripEnded = _t > _e;
+  }
+  const _clCollapsed = _tripEnded && !window._clExpanded;
+
   el.innerHTML = `
     <div style="padding:16px 0 8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -888,23 +900,27 @@ function renderHome() {
       ${recapHtml}
       <div class="hstats">
         <div class="hstat"><div class="hsv">${allDays.length}</div><div class="hsl">天行程</div></div>
-        <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">地點清單</div></div>
-        <div class="hstat hstat-click" data-goto="timeline"><div class="hsv">${trips}</div><div class="hsl">地點安排</div></div>
+        <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">口袋名單</div></div>
+        <div class="hstat hstat-click" data-goto="timeline"><div class="hsv">${trips}</div><div class="hsl">已排入</div></div>
       </div>
     </div>
     <div style="border-top:1px solid var(--border);padding-top:10px">
-      <div class="cl-hdr-row">
-        <span class="cl-hdr-title">準備清單</span>
+      <div class="cl-hdr-row${_tripEnded ? ' cl-collapsible' : ''}"${_tripEnded ? ' id="cl-hdr-toggle" title="點擊展開／收合"' : ''}>
+        <span class="cl-hdr-title">準備清單${_tripEnded ? `<span class="cl-chevron">${_clCollapsed ? '▸' : '▾'}</span>` : ''}</span>
         <span class="cl-hdr-prog" id="cl-prog-label"></span>
       </div>
-      <div class="cl-prog-track"><div class="cl-prog-fill" id="cl-prog-fill" style="width:0%"></div></div>
-      <div id="cl-body"></div>
+      <div id="cl-collapse-wrap"${_clCollapsed ? ' style="display:none"' : ''}>
+        <div class="cl-prog-track"><div class="cl-prog-fill" id="cl-prog-fill" style="width:0%"></div></div>
+        <div id="cl-body"></div>
+      </div>
     </div>`;
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
   on('recap-share', 'click', shareRecap);
   const memBtn = el.querySelector('#btn-open-members');
   if (memBtn) memBtn.addEventListener('click', openMembersModal);
+  const clToggle = el.querySelector('#cl-hdr-toggle');
+  if (clToggle) clToggle.addEventListener('click', () => { window._clExpanded = !window._clExpanded; renderHome(); });
   clLoad(ap, el.querySelector('#cl-body'));
 }
 
@@ -956,7 +972,11 @@ function renderWish() {
   }
 
   // 套用搜尋 + 篩選
-  let filtered = [...wishes];
+  let filtered = wishes.filter(w => w && w.name);
+  // Hide the tour sample once the user has real places of their own
+  if (wishes.some(w => w && w.name && w.id !== '_tour_sample')) {
+    filtered = filtered.filter(w => w.id !== '_tour_sample');
+  }
   if (wishFilter.query) {
     const q = wishFilter.query.toLowerCase();
     filtered = filtered.filter(w => w.name.toLowerCase().includes(q) || (w.note || '').toLowerCase().includes(q));
@@ -1152,7 +1172,7 @@ function renderTimeline() {
   let html = `
     <div id="mini-date-bar">${miniBar}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
-      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3)"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
+      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='day' ? `<button class="day-nav" id="day-prev" title="前一天"${currentDayIdx===0?' disabled':''}>‹</button>` : ''}${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView==='day' ? `<button class="day-nav" id="day-next" title="後一天"${currentDayIdx>=days.length-1?' disabled':''}>›</button>` : ''}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3)"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
       ${viewToggle}
     </div>
     ${timelineView === 'day' && _customName ? `<div id="day-name-subtitle">- ${esc(_customName)}</div>` : ''}`;
@@ -1194,12 +1214,36 @@ function renderTimeline() {
       if (info) transitTotal += info.min;
     }
     const _visitedCnt = dayTrips.filter(x => x.visited).length;
-    const timeSummary = totalMin
-      ? `<div class="day-time-summary">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal} 分</span>` : ''} · 已走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></div>`
+
+    // 由出發時間沿停留＋移動推算每站預計抵達；行程自帶 time 者視為錨點重設時間軸
+    const _dayStart = (db.projects.find(x => x.id === ap)?.dayStartTimes || {})[dateStr] || '09:00';
+    const _toMin = tm => { const [h, m] = String(tm).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+    const _toHM  = min => `${String(Math.floor((min % 1440) / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+    const _etas = [];
+    let _etaCursor = _toMin(_dayStart);
+    dayTrips.forEach((t, ti) => {
+      if (ti > 0) { const info = transitInfo(dayTrips[ti - 1], t, _transit); if (info) _etaCursor += info.min; }
+      if (t.time) _etaCursor = _toMin(t.time);
+      _etas.push(_toHM(_etaCursor));
+      _etaCursor += Number(t.duration) || 0;
+    });
+
+    // 提案A：出發時間＋統計＋動作鈕合併成單一工具列（原標題列已移除）
+    const _actionBtns = `<div class="dts-actions">${dayTrips.some(t => t.visited) ? `<button class="ib" id="reflect-btn" title="每日回顧評分" style="font-size:13px">⭐</button>` : ''}${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn" title="從地點清單新增">＋ 新增</button></div>`;
+    // 固定兩行：第一行控制項（chip 左、動作鈕右），第二行純統計文字——避免窄版面隨機換行
+    const timeSummary = `<div class="day-time-summary" style="padding-bottom:0">${totalMin
+      ? `<button class="day-start-chip" id="day-start-btn" title="設定當天出發時間">🕘 ${_dayStart} 出發</button>`
+      : ''}${_actionBtns}</div>${totalMin
+      ? `<div class="day-time-summary" style="padding-top:2px"><span class="dts-stats">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal} 分</span>` : ''} · 已走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></span></div>`
+      : ''}`;
+
+    // 移動時間偏高（≥ 遊玩時間 40%）且各站都有座標 → 提示順路排序
+    const _optimizable = dayTrips.length >= 3 && totalMin > 0 && transitTotal >= totalMin * 0.4 && dayTrips.every(t => tripCoords(t));
+    const routeHint = _optimizable
+      ? `<div class="route-hint"><span>🧭 移動 ≈${transitTotal} 分偏多，順序可能繞路</span><button id="route-opt-btn">一鍵順路排序</button></div>`
       : '';
 
-    html += `<div class="shd" style="margin-top:0;padding-top:0"><h2>行程安排</h2><div style="display:flex;gap:6px;align-items:center">${dayTrips.some(t => t.visited) ? `<button class="ib" id="reflect-btn" title="每日回顧評分" style="font-size:13px">⭐</button>` : ''}${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn">從地點清單新增</button></div></div>`;
-    html += timeSummary;
+    html += timeSummary + routeHint;
 
     if (!dayTrips.length) {
       html += `<div class="empty" style="padding:24px 0"><div class="ei">${IC.pin}</div><p>今天還沒有行程<br>從地點清單排入</p></div>`;
@@ -1230,7 +1274,7 @@ function renderTimeline() {
           <div class="vc-row2">
             ${(() => { const u = itemMapUrl(t.mapUrl || (wishItem && wishItem.mapUrl), t.name); return u ? `<a class="vc-map" href="${esc(u)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''; })()}
             ${t.score ? `<span class="vc-score">⭐${t.score}</span><span class="vc-sep">·</span>` : ''}
-            ${t.time ? `<span class="vc-meta">${t.time}</span><span class="vc-sep">·</span>` : ''}
+            ${t.time ? `<span class="vc-meta">${t.time}</span><span class="vc-sep">·</span>` : `<span class="vc-eta" title="預計抵達（依出發時間推算）">⏱ ${_etas[ti]}</span><span class="vc-sep">·</span>`}
             <span class="vc-dur">${DUR[t.duration] || t.duration + '分'}</span>
             ${(() => { const addr = (wishItem && wishItem.address) || t.address || ''; return addr ? `<span class="vc-sep">·</span><span class="vc-addr">${esc(addr)}</span>` : ''; })()}
           </div>
@@ -1276,6 +1320,40 @@ function renderTimeline() {
   // 視圖切換
   on('vt-day', 'click', () => { timelineView = 'day'; renderTimeline(); });
   on('vt-overview', 'click', () => { timelineView = 'overview'; renderTimeline(); });
+
+  // 前一天 / 後一天
+  on('day-prev', 'click', () => { if (currentDayIdx > 0) { currentDayIdx--; renderTimeline(); } });
+  on('day-next', 'click', () => { if (currentDayIdx < days.length - 1) { currentDayIdx++; renderTimeline(); } });
+
+  // 當天出發時間（inline 編輯，模式同 editTransit）
+  on('day-start-btn', 'click', () => {
+    const btn = $('day-start-btn');
+    if (!btn || btn.querySelector('input')) return;
+    const dateStr = days[currentDayIdx];
+    const p = db.projects.find(x => x.id === ap);
+    const cur = (p?.dayStartTimes || {})[dateStr] || '09:00';
+    btn.innerHTML = `🕘 <input type="time" class="ds-input" value="${cur}"> 出發`;
+    const inp = btn.querySelector('input');
+    inp.focus();
+    const save = async () => {
+      const v = inp.value;
+      if (v && v !== cur) {
+        if (!p.dayStartTimes) p.dayStartTimes = {};
+        p.dayStartTimes[dateStr] = v;
+        // PWA 的 projPatch 是 PUT（整段覆寫），寫葉節點以免清掉其他天的設定
+        await window.projPatch(ap, `dayStartTimes/${dateStr}`, v);
+      }
+      renderTimeline();
+    };
+    inp.addEventListener('blur', save, { once: true });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }
+      if (e.key === 'Escape') { inp.removeEventListener('blur', save); renderTimeline(); }
+    });
+  });
+
+  // 一鍵順路排序
+  on('route-opt-btn', 'click', () => optimizeDayOrder(days[currentDayIdx]));
 
   // 今日主題內聯編輯
   const _openDayNameEdit = (anchor) => {
@@ -2522,21 +2600,31 @@ async function runBatchImport() {
     mapUrl: r.querySelector('.batch-url').value.trim(),
   })).filter(x => x.name);
   if (!items.length) { showToast('請輸入至少一個地點名稱'); return; }
+  // Skip names already in the wishlist (and repeats within this batch)
+  const _existingNames = new Set((db.wishlist[ap] || []).filter(w => w.name).map(w => normName(w.name)));
+  let _skipped = 0;
+  const uniqueItems = items.filter(it => {
+    const n = normName(it.name);
+    if (_existingNames.has(n)) { _skipped++; return false; }
+    _existingNames.add(n);
+    return true;
+  });
+  if (!uniqueItems.length) { showToast('這些地點都已在清單中，未重複匯入'); return; }
   if (!db.wishlist[ap]) db.wishlist[ap] = [];
   const newWishItems = [];
-  [...items].reverse().forEach(item => {
+  [...uniqueItems].reverse().forEach(item => {
     const wishItem = { id: item.id, name: item.name, mapUrl: item.mapUrl, category: '景點', rating: 3, duration: 60, note: '', createdAt: Date.now() };
     db.wishlist[ap].unshift(wishItem);
     newWishItems.push(wishItem);
   });
   await Promise.all(newWishItems.map(w => window.projPatch(ap, `wishlist/${w.id}`, w)));
-  showToast(`✅ 已匯入 ${items.length} 個地點`);
+  showToast(`✅ 已匯入 ${uniqueItems.length} 個地點${_skipped ? `（略過 ${_skipped} 個重複）` : ''}`);
   cm('m-batch');
   showTab('wish');
   // renderWish 是同步的，等下一個 frame 再找 card
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      items.forEach(item => {
+      uniqueItems.forEach(item => {
         const card = document.querySelector(`.wish-card[data-wish-id="${item.id}"]`);
         if (card) card.classList.add('highlight');
       });
@@ -2641,6 +2729,34 @@ async function moveWholeDay(toDate, toIdx) {
   currentDayIdx = toIdx;
   renderTimeline();
   showToast(`✅ 已全部移至 Day ${toIdx + 1}`);
+}
+
+// 一鍵順路排序：固定第一站，貪婪最近鄰重排（以 transitInfo 估算分鐘為距離）
+async function optimizeDayOrder(dateStr) {
+  const trips = sortedDayTrips(dateStr);
+  if (trips.length < 3 || !trips.every(t => tripCoords(t))) return;
+  const overrides = db.projects.find(x => x.id === ap)?.transit || {};
+  const cost = (a, b) => { const info = transitInfo(a, b, overrides); return info ? info.min : 9999; };
+  const sumCost = list => list.reduce((s, t, i) => i ? s + cost(list[i - 1], t) : 0, 0);
+  const before = sumCost(trips);
+  const remaining = trips.slice(1);
+  const ordered = [trips[0]];
+  while (remaining.length) {
+    const last = ordered[ordered.length - 1];
+    let bi = 0;
+    for (let i = 1; i < remaining.length; i++) {
+      if (cost(last, remaining[i]) < cost(last, remaining[bi])) bi = i;
+    }
+    ordered.push(remaining.splice(bi, 1)[0]);
+  }
+  const after = sumCost(ordered);
+  if (after >= before) { showToast('目前順序已接近最短路線'); return; }
+  const ok = await showConfirm(`順路排序可將移動時間由 ≈${before} 分縮短為 ≈${after} 分，套用新順序？（仍可拖曳微調）`);
+  if (!ok) return;
+  ordered.forEach((t, i) => { t.order = i; });
+  await Promise.all(ordered.map(t => window.projMerge(ap, `trips/${t.id}`, { order: t.order })));
+  renderTimeline();
+  showToast(`✅ 已重新排序，移動 ≈${after} 分`);
 }
 
 // =============================================================
