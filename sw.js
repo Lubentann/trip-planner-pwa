@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v25'; // UI 批次同步（ETA/順路排序/換日箭頭等）＋教學導覽新步驟與小螢幕修正
+const CACHE_NAME = 'trip-planner-v27'; // UI 批次同步＋導覽新步驟/小螢幕修正/起手卡＋導覽首步回首頁與 cl 分頁修正
 const ASSETS = [
   './',
   './index.html',
