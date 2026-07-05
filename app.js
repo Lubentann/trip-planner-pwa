@@ -829,6 +829,20 @@ function renderHome() {
     ? _wishArr.filter(w => w.id !== '_tour_sample').length
     : _wishArr.length;
   const trips   = (db.trips[ap]   || []).length;
+
+  // 新手起手卡：三步驟引導，收集與排程都完成後自動消失（範例資料不算數）
+  const _realWish = _wishArr.some(w => w && w.name && w.id !== '_tour_sample');
+  const _realTrip = (db.trips[ap] || []).some(t => t && t.id !== '_sample_trip' && t.id !== '_tour_sample_trip');
+  let starterHtml = '';
+  if (!_realWish || !_realTrip) {
+    const _stepRow = (done, n, label, hint, goto) => `<div class="starter-step${done ? ' done' : ''}"${!done && goto ? ` data-starter-goto="${goto}"` : ''}><span class="ss-badge">${done ? '✓' : n}</span><span class="ss-body"><span class="ss-label">${label}</span><span class="ss-hint">${hint}</span></span>${!done && goto ? '<span class="ss-arrow">›</span>' : ''}</div>`;
+    starterHtml = `<div class="starter-card">
+      <div class="starter-title">三步驟開始規劃</div>
+      ${_stepRow(true, 1, '建立旅遊專案', '完成！日期與成員都可隨時調整', '')}
+      ${_stepRow(_realWish, 2, '收集想去的地點', '用多地點匯入，或在地點清單手動新增', 'wish')}
+      ${_stepRow(_realTrip, 3, '排入每日行程', '在地點清單勾選地點，按「加入行程」選日期', _realWish ? 'timeline' : 'wish')}
+    </div>`;
+  }
   const allDays = getTripDays();
   const fmtDate = d => { if (!d) return ''; const [y,m,dd] = d.split('-'); return `${y}/${m}/${dd}`; };
   const dateStr = p.startDate ? `${fmtDate(p.startDate)} ～ ${fmtDate(p.endDate)}` : '';
@@ -898,6 +912,7 @@ function renderHome() {
       ${dateStr?`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">${dateStr}</div>`:'<div style="margin-bottom:10px"></div>'}
       ${countdownHtml}
       ${recapHtml}
+      ${starterHtml}
       <div class="hstats">
         <div class="hstat"><div class="hsv">${allDays.length}</div><div class="hsl">天行程</div></div>
         <div class="hstat hstat-click" data-goto="wish"><div class="hsv">${wishes}</div><div class="hsl">口袋名單</div></div>
@@ -916,6 +931,7 @@ function renderHome() {
     </div>`;
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
+  el.querySelectorAll('[data-starter-goto]').forEach(s => s.addEventListener('click', () => showTab(s.dataset.starterGoto)));
   on('recap-share', 'click', shareRecap);
   const memBtn = el.querySelector('#btn-open-members');
   if (memBtn) memBtn.addEventListener('click', openMembersModal);
@@ -3288,18 +3304,19 @@ function _isCodeValid(entry) {
 
 const PWA_TOUR_STEPS = [
   { title: '歡迎使用旅程規劃！',
+    tabSwitch: 'home',
     descHtml: '<p style="margin:0 0 8px">這是你的行動旅遊規劃工具，可以在手機上隨時管理地點、安排行程。</p><p style="margin:0">接下來帶你快速認識核心功能。</p>' },
   { title: '首頁：掌握旅程全局',
-    target: '#pg-home',
+    target: '#pg-home', tabSwitch: 'home',
     descHtml: '<p style="margin:0">首頁顯示專案的出發日期、天數概覽，以及地點和行程的統計摘要。</p>' },
   { title: '專案切換與管理',
-    target: '.dd-toggle',
+    target: '.dd-toggle', tabSwitch: 'home',
     descHtml: '<p style="margin:0 0 8px">點這裡切換不同旅遊專案。</p><p style="margin:0">底部可以新增旅遊、邀請夥伴協作、或輸入邀請碼加入他人的專案。</p>' },
   { title: '準備清單：新增自訂項目',
-    target: '.cl-add-row', tabSwitch: 'cl',
+    target: '.cl-add-row', tabSwitch: 'home',
     descHtml: '<p style="margin:0">選擇分類、輸入項目名稱，按 + 即可新增。打勾代表已完成準備。</p>' },
   { title: '準備清單：購買連結',
-    target: '.cl-link', tabSwitch: 'cl',
+    target: '.cl-link', tabSwitch: 'home',
     descHtml: '<p style="margin:0">部分項目旁有「前往 ↗」按鈕，點擊即可直接前往購買網卡、票券等旅行必備品。</p>' },
   { title: '地點清單：收藏感興趣的地點',
     target: '#tab-wish', tabSwitch: 'wish',
@@ -3350,7 +3367,8 @@ function endTour(completed = false) {
 function getTourTargetRect(selector) {
   if (!selector) return null;
   const el = document.querySelector(selector);
-  if (!el) return null;
+  // 找得到但被隱藏（display:none / 已摺疊）視同找不到 → 退回全幕遮罩＋置中氣泡
+  if (!el || (!el.offsetWidth && !el.offsetHeight)) return null;
   // 小螢幕：目標可能在折疊線下，量測前先捲入可視範圍
   try { el.scrollIntoView({ block: 'nearest' }); } catch (e) {}
   const r = el.getBoundingClientRect();
@@ -3655,4 +3673,3 @@ async function joinProject() {
     tryBind();
   }
 })();
-
