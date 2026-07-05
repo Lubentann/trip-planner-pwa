@@ -182,6 +182,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .recap-title{font-size:13px;font-weight:700;margin-bottom:6px}
 .recap-line{font-size:12px;color:var(--text2);line-height:1.7}
 .recap-share{margin-top:8px;background:var(--accent);color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer}
+/* 新手起手卡 */
+.starter-card{background:var(--surface);border:1px solid var(--accent-m);border-radius:var(--rl);padding:12px 14px;margin:10px 0}
+.starter-title{font-size:13px;font-weight:700;margin-bottom:4px}
+.starter-step{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)}
+.starter-step:last-child{border-bottom:none}
+.starter-step[data-starter-goto]{cursor:pointer}
+.starter-step.done{opacity:.55}
+.ss-badge{width:20px;height:20px;border-radius:50%;background:var(--accent-l);color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.starter-step.done .ss-badge{background:var(--accent);color:#fff}
+.ss-body{display:flex;flex-direction:column;min-width:0}
+.ss-label{font-size:12px;font-weight:600;color:var(--text)}
+.ss-hint{font-size:11px;color:var(--text3)}
+.ss-arrow{margin-left:auto;color:var(--text3);font-size:14px}
 .reflect-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
 .reflect-row:last-child{border-bottom:none}
 .reflect-name{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
