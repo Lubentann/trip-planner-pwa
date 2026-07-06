@@ -154,6 +154,7 @@ const IC = {
   walk:      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="13" cy="4" r="1.6"/><path d="M13 7v5l-2 9"/><path d="M13 12l3 9"/><path d="M13 8.5L9.5 11 8 14"/><path d="M13 9l3.5 2 2.5.5"/></svg>',
   train:     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="13" rx="2"/><line x1="4" y1="11" x2="20" y2="11"/><line x1="8" y1="19" x2="6" y2="22"/><line x1="16" y1="19" x2="18" y2="22"/><circle cx="8.5" cy="13.5" r=".6" fill="currentColor"/><circle cx="15.5" cy="13.5" r=".6" fill="currentColor"/></svg>',
   compass:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
+  bed:       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>',
 };
 
 // ── 準備清單常數 ──────────────────────────────────────────────────────────────
@@ -350,7 +351,7 @@ async function loadDB() {
   updateAuthUI(user);
 
   // Start real-time sync for the active project
-  if (ap) { startWishlistSync(ap); startTripsSync(ap); }
+  if (ap) { startWishlistSync(ap); startTripsSync(ap); startLodgingSync(ap); }
 
   // Opportunistic cleanup of expired invite codes (fire-and-forget)
   cleanupExpiredInvites();
@@ -847,7 +848,7 @@ function renderHome() {
     starterHtml = `<div class="starter-card">
       <div class="starter-title">三步驟開始規劃</div>
       ${_stepRow(true, 1, '建立旅遊專案', '完成！日期與成員都可隨時調整', '')}
-      ${_stepRow(_realWish, 2, '收集想去的地點', '用多地點匯入，或在地點清單手動新增', 'wish')}
+      ${_stepRow(_realWish, 2, '收集想去的地點', '用新增多地點，或在地點清單手動新增', 'wish')}
       ${_stepRow(_realTrip, 3, '排入每日行程', '在地點清單勾選地點，按「加入行程」選日期', _realWish ? 'timeline' : 'wish')}
     </div>`;
   }
@@ -983,7 +984,7 @@ function renderWish() {
   // 取得所有類別
   const allCats = [...new Set(wishes.map(w => w.category))];
 
-  let html = `<div class="shd"><h2>地點清單</h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">多地點匯入</button><button class="add-btn" id="wish-add-btn">新增地點</button></div></div>`;
+  let html = `<div class="shd"><h2>地點清單</h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">新增多地點</button><button class="add-btn" id="wish-add-btn">新增地點</button></div></div>`;
 
   // 搜尋欄 + 篩選 chips
   html += `<div id="wish-search-row">
@@ -1253,6 +1254,14 @@ function renderTimeline() {
       const info = transitInfo(dayTrips[ti - 1], dayTrips[ti], _transit);
       if (info) transitTotal += info.min;
     }
+    // 住宿：早上出發旅館（睡前一晚的）與今晚旅館，及頭尾兩段移動
+    const _lodgeAM = morningLodging(dateStr);
+    const _lodgePM = eveningLodging(dateStr);
+    const _dayLodge = _lodgePM || _lodgeAM;
+    const _amSeg = dayTrips.length ? lodgeTransit(_lodgeAM, dayTrips[0]) : null;
+    const _pmSeg = dayTrips.length ? lodgeTransit(_lodgePM, dayTrips[dayTrips.length - 1]) : null;
+    if (_amSeg) transitTotal += _amSeg.min;
+    if (_pmSeg) transitTotal += _pmSeg.min;
     const _visitedCnt = dayTrips.filter(x => x.visited).length;
 
     // 由出發時間沿停留＋移動推算每站預計抵達；行程自帶 time 者視為錨點重設時間軸
@@ -1263,10 +1272,12 @@ function renderTimeline() {
     let _etaCursor = _toMin(_dayStart);
     dayTrips.forEach((t, ti) => {
       if (ti > 0) { const info = transitInfo(dayTrips[ti - 1], t, _transit); if (info) _etaCursor += info.min; }
+      else if (_amSeg) _etaCursor += _amSeg.min;
       if (t.time) _etaCursor = _toMin(t.time);
       _etas.push(_toHM(_etaCursor));
       _etaCursor += Number(t.duration) || 0;
     });
+    const _pmArrive = _pmSeg ? _toHM(_etaCursor + _pmSeg.min) : '';
 
     // 提案A：出發時間＋統計＋動作鈕合併成單一工具列（原標題列已移除）
     const _actionBtns = `<div class="dts-actions">${dayTrips.some(t => t.visited) ? `<button class="ib" id="reflect-btn" title="每日回顧評分" style="font-size:13px">⭐</button>` : ''}${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn" title="從地點清單新增">＋ 新增</button></div>`;
@@ -1285,10 +1296,19 @@ function renderTimeline() {
 
     html += timeSummary + routeHint;
 
+    // 住宿列
+    const _nights = l => Math.round((new Date(l.checkOut) - new Date(l.checkIn)) / 86400000);
+    const _md = s => s.slice(5).replace('-', '/');
+    const _lodgeUrl = _dayLodge ? (_dayLodge.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(_dayLodge.name)}`) : '';
+    html += _dayLodge
+      ? `<div class="lodge-row" id="lodge-row" title="點擊編輯住宿">${IC.bed}<span class="lr-name">${esc(_dayLodge.name)}</span><a class="vc-map" href="${esc(_lodgeUrl)}" target="_blank">地圖</a><span class="lr-meta">${_md(_dayLodge.checkIn)}–${_md(_dayLodge.checkOut)} · ${_nights(_dayLodge)} 晚${_lodgePM && _lodgePM.checkIn === dateStr && _lodgeAM ? ' · 今日入住' : ''}${!_lodgePM && _lodgeAM ? ' · 今日退房' : ''}</span></div>`
+      : `<div class="lodge-row lodge-none" id="lodge-row" title="設定這段旅程的住宿"><span style="display:inline-flex;color:var(--text3)">${IC.bed}</span><span class="lr-name">＋ 設定住宿</span></div>`;
+
     if (!dayTrips.length) {
       html += `<div class="empty" style="padding:24px 0"><div class="ei">${IC.pin}</div><p>今天還沒有行程<br>從地點清單排入</p></div>`;
     } else {
       html += `<div id="trip-list">`;
+      if (_amSeg) html += `<div class="transit-row lodge-seg">${_amSeg.mode === 'walk' ? IC.walk : IC.train} 住宿 → ${esc(dayTrips[0].name)} ${_amSeg.min}分</div>`;
       let _lastBucket = '';
       const _todBucket = tm => { const h = parseInt(tm, 10); return h < 12 ? '上午' : h < 17 ? '下午' : '晚上'; };
       dayTrips.forEach((t, ti) => {
@@ -1323,6 +1343,7 @@ function renderTimeline() {
           </div>
         </div>`;
       });
+      if (_pmSeg) html += `<div class="transit-row lodge-seg">${_pmSeg.mode === 'walk' ? IC.walk : IC.train} 返回住宿 ${_pmSeg.min}分${_pmArrive ? ` · 預計 ${_pmArrive} 抵達` : ''}</div>`;
       html += `</div>
       <button class="add-btn" id="timeline-add-btn-bottom" style="width:100%;justify-content:center;margin-top:6px;background:var(--surface2);color:var(--text);border:1px solid var(--border)">＋ 從地點清單新增</button>`;
     }
@@ -1435,6 +1456,7 @@ function renderTimeline() {
   on('timeline-add-btn-bottom', 'click', () => showTab('wish'));
   on('move-day-btn', 'click', openMoveDay);
   on('share-day-btn', 'click', shareDay);
+  on('lodge-row', 'click', (e) => { if (e.target.closest('a')) return; openLodging(days[currentDayIdx]); });
   on('reflect-btn', 'click', () => openReflect(days[currentDayIdx], currentDayIdx));
   on('rp-go', 'click', () => { const rp = $('reflect-prompt'); if (rp) rp.remove(); openReflect(days[currentDayIdx], currentDayIdx); });
   on('rp-later', 'click', () => { localStorage.setItem(`reflectDismiss:${ap}:${days[currentDayIdx]}`, '1'); const rp = $('reflect-prompt'); if (rp) rp.remove(); });
@@ -1874,6 +1896,7 @@ function selProj(id) {
   // Restart real-time sync for the newly selected project
   startWishlistSync(id);
   startTripsSync(id);
+  startLodgingSync(id);
 }
 
 // =============================================================
@@ -1951,6 +1974,38 @@ function _scheduleTripsRender() {
     if (at === 'timeline') renderTimeline();
     else if (at === 'home') renderHome();
     else if (at === 'wish') renderWish(); // update scheduled badges
+  }, 150);
+}
+
+let _lodgingUnsub = null;
+let _lodgingSyncPid = null;
+let _lodgingRenderTimer = null;
+
+function startLodgingSync(pid) {
+  stopLodgingSync();
+  if (!pid || !window.fbListen) return;
+  _lodgingSyncPid = pid;
+  _lodgingUnsub = window.fbListen(`projects/${pid}/lodging`, (data) => {
+    if (_lodgingSyncPid !== pid) return;
+    const p = db.projects.find(x => x.id === pid);
+    if (p) p.lodging = data || {};
+    _scheduleLodgingRender();
+  });
+}
+
+function stopLodgingSync() {
+  if (_lodgingUnsub) { _lodgingUnsub(); _lodgingUnsub = null; }
+  _lodgingSyncPid = null;
+  if (_lodgingRenderTimer) { clearTimeout(_lodgingRenderTimer); _lodgingRenderTimer = null; }
+}
+
+function _scheduleLodgingRender() {
+  if (_lodgingRenderTimer) return;
+  _lodgingRenderTimer = setTimeout(() => {
+    _lodgingRenderTimer = null;
+    if (document.querySelector('.modal.open')) return;
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    if (at === 'timeline') renderTimeline();
   }, 150);
 }
 
@@ -2162,7 +2217,7 @@ async function execDelProj() {
     delete db.wishlist[id]; delete db.trips[id];
     if (ap === id) ap = db.projects[0]?.id || null;
     cm('m-del-proj'); renderAll(); showTab('home');
-    if (ap) { startWishlistSync(ap); startTripsSync(ap); } else { stopWishlistSync(); stopTripsSync(); }
+    if (ap) { startWishlistSync(ap); startTripsSync(ap); startLodgingSync(ap); } else { stopWishlistSync(); stopTripsSync(); stopLodgingSync(); }
     showToast('👋 已轉移擁有權並退出專案');
   } else if (mode === 'delete') {
     // Solo owner: destructive delete
@@ -2171,7 +2226,7 @@ async function execDelProj() {
     if (ap === id) ap = db.projects[0]?.id || null;
     await saveDB();
     cm('m-del-proj'); renderAll(); showTab('home');
-    if (ap) { startWishlistSync(ap); startTripsSync(ap); } else { stopWishlistSync(); stopTripsSync(); }
+    if (ap) { startWishlistSync(ap); startTripsSync(ap); startLodgingSync(ap); } else { stopWishlistSync(); stopTripsSync(); stopLodgingSync(); }
     showToast('🗑️ 專案已刪除');
   } else {
     // Guest leave
@@ -2181,7 +2236,7 @@ async function execDelProj() {
     delete db.wishlist[id]; delete db.trips[id];
     if (ap === id) ap = db.projects[0]?.id || null;
     cm('m-del-proj'); renderAll(); showTab('home');
-    if (ap) { startWishlistSync(ap); startTripsSync(ap); } else { stopWishlistSync(); stopTripsSync(); }
+    if (ap) { startWishlistSync(ap); startTripsSync(ap); startLodgingSync(ap); } else { stopWishlistSync(); stopTripsSync(); stopLodgingSync(); }
     showToast('👋 已退出專案');
   }
 }
@@ -2817,6 +2872,89 @@ function tripCoords(t) {
   return m ? { lat: Number(m[1]), lng: Number(m[2]) } : null;
 }
 
+// =============================================================
+//  住宿（lodging）：日期區間制，每天從住宿出發、回到住宿
+// =============================================================
+function getLodgings() {
+  const p = db.projects.find(x => x.id === ap);
+  return Object.values(p?.lodging || {}).filter(l => l && l.checkIn).sort((a, b) => a.checkIn.localeCompare(b.checkIn));
+}
+function morningLodging(d) { return getLodgings().find(l => l.checkIn < d && d <= l.checkOut) || null; }
+function eveningLodging(d) { return getLodgings().find(l => l.checkIn <= d && d < l.checkOut) || null; }
+
+function lodgeCoords(l) {
+  if (!l) return null;
+  if (l.lat != null && l.lng != null) return { lat: Number(l.lat), lng: Number(l.lng) };
+  const m = (l.mapUrl || '').match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  return m ? { lat: Number(m[1]), lng: Number(m[2]) } : null;
+}
+function lodgeTransit(lodge, trip) {
+  const ca = lodgeCoords(lodge), cb = trip ? tripCoords(trip) : null;
+  if (!ca || !cb) return null;
+  const km = haversineKm(ca.lat, ca.lng, cb.lat, cb.lng);
+  if (km < 1.5) return { min: Math.max(1, Math.round(km / 4.5 * 60)), mode: 'walk' };
+  return { min: Math.round(km / 20 * 60 + 10), mode: 'transit' };
+}
+
+let _lgEditId = null;
+function openLodging(dateStr) {
+  const cur = eveningLodging(dateStr) || morningLodging(dateStr);
+  _lgFill(cur, dateStr);
+  om('m-lodging');
+}
+function _lgFill(cur, dateStr) {
+  const lodgings = getLodgings();
+  _lgEditId = cur ? cur.id : null;
+  const p = db.projects.find(x => x.id === ap);
+  $('lg-name').value = cur?.name || '';
+  $('lg-map').value  = cur?.mapUrl || '';
+  $('lg-in').value   = cur?.checkIn  || (lodgings.length ? lodgings[lodgings.length - 1].checkOut : p?.startDate) || dateStr;
+  $('lg-out').value  = cur?.checkOut || p?.endDate || dateStr;
+  $('lg-note').value = cur?.note || '';
+  $('lg-del').style.display = cur ? '' : 'none';
+  $('lg-list').innerHTML = lodgings.map(l =>
+    `<div class="lg-item${cur && l.id === cur.id ? ' on' : ''}" data-lg="${l.id}">${esc(l.name)}｜${l.checkIn.slice(5).replace('-', '/')}～${l.checkOut.slice(5).replace('-', '/')}</div>`
+  ).join('') + (lodgings.length ? `<div class="lg-item add" data-lg="_new">＋ 新增另一段住宿</div>` : '');
+  $('lg-list').querySelectorAll('.lg-item').forEach(it => it.onclick = () => {
+    _lgFill(it.dataset.lg === '_new' ? null : lodgings.find(x => x.id === it.dataset.lg), dateStr);
+  });
+  $('mc-lodging').onclick = () => cm('m-lodging');
+  $('lg-save').onclick = saveLodging;
+  $('lg-del').onclick  = delLodging;
+}
+async function saveLodging() {
+  const name = $('lg-name').value.trim();
+  const ci = $('lg-in').value, co = $('lg-out').value;
+  if (!name) { showToast('請輸入住宿名稱'); return; }
+  if (!ci || !co || co <= ci) { showToast('退房日需晚於入住日'); return; }
+  const mapUrl = $('lg-map').value.trim() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
+  const m = mapUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  const item = {
+    id: _lgEditId || uid(), name, mapUrl,
+    checkIn: ci, checkOut: co,
+    note: $('lg-note').value.trim(),
+    lat: m ? Number(m[1]) : null, lng: m ? Number(m[2]) : null,
+    createdAt: Date.now(),
+  };
+  const p = db.projects.find(x => x.id === ap);
+  const overlap = Object.values(p?.lodging || {}).some(l => l && l.id !== item.id && l.checkIn < co && ci < l.checkOut);
+  if (!p.lodging) p.lodging = {};
+  p.lodging[item.id] = item;
+  await window.projPatch(ap, `lodging/${item.id}`, item);
+  cm('m-lodging');
+  if (overlap) showToast('⚠️ 與另一段住宿日期重疊，請確認');
+  renderTimeline();
+}
+async function delLodging() {
+  if (!_lgEditId) return;
+  if (!(await showConfirm('刪除這段住宿？'))) return;
+  const p = db.projects.find(x => x.id === ap);
+  if (p?.lodging) delete p.lodging[_lgEditId];
+  await window.projDelete(ap, `lodging/${_lgEditId}`);
+  cm('m-lodging');
+  renderTimeline();
+}
+
 // 回傳 { min, mode, manual } 或 null（雙方都無座標且無手動覆寫時）
 function transitInfo(a, b, overrides) {
   const ov = overrides ? overrides[`${a.id}_${b.id}`] : null;
@@ -2832,8 +2970,8 @@ function transitRowHtml(a, b, overrides) {
   const info = transitInfo(a, b, overrides);
   if (!info) return '';
   const icon = info.mode === 'walk' ? IC.walk : IC.train;
-  const label = info.manual ? `${icon} ${info.min}分` : `${icon} ≈${info.min}分`;
-  return `<div class="transit-row ${info.manual ? 'manual' : ''}" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}" title="點擊查看 Google Maps 路線">${label}<button class="tr-edit" data-tr-edit="${a.id}_${b.id}" title="自訂移動時間"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button></div>`;
+  const label = `${icon} ${info.min}分`;
+  return `<div class="transit-row" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}" title="點擊查看 Google Maps 路線">${label}<button class="tr-edit" data-tr-edit="${a.id}_${b.id}" title="自訂移動時間"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button></div>`;
 }
 
 function openTransitDir(fromId, toId, mode) {
