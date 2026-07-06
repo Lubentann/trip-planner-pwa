@@ -167,10 +167,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #day-name-subtitle{font-size:11px;font-weight:500;color:var(--text3);cursor:pointer;margin:-4px 0 4px;display:flex;align-items:center;height:15px;overflow:hidden;white-space:nowrap}
 .transit-row{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text3);padding:1px 0 1px 22px;margin:-2px 0 6px;cursor:pointer;position:relative;user-select:none}
 .transit-row::before{content:'';position:absolute;left:11px;top:-6px;bottom:-6px;border-left:2px dotted var(--border2)}
-.transit-row.manual{color:var(--text2);font-weight:600}
 .transit-row .tr-edit{border:none;background:none;color:var(--text3);cursor:pointer;padding:2px;display:flex;align-items:center;opacity:0.6}
 .transit-row .tr-edit:hover{opacity:1}
 .transit-row .tr-input{font-size:11px;width:56px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);padding:2px 4px;outline:none}
+.lodge-row{display:flex;align-items:center;gap:6px;font-size:11px;background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--r);padding:6px 10px;margin:2px 0 8px;cursor:pointer;color:var(--text2)}
+.lodge-row .lr-name{font-weight:600;color:var(--text)}
+.lodge-row .lr-meta{color:var(--text3)}
+.lodge-row.lodge-none .lr-name{color:var(--text3);font-weight:500}
+.lodge-seg{cursor:default}
+.lg-item{font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text2)}
+.lg-item.on{border-color:var(--accent);color:var(--accent)}
+.lg-item.add{color:var(--accent);border-style:dashed}
 .visit-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border2);background:none;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:transparent;font-size:11px;font-weight:700;padding:0;line-height:1}
 .visit-check.checked{background:var(--accent);border-color:var(--accent);color:#fff}
 .visit-check.pop{animation:visit-pop .35s cubic-bezier(.34,1.56,.64,1)}
@@ -776,7 +783,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 <!-- Modal: 批次匯入地點 -->
 <div class="mwrap" id="m-batch">
   <div class="modal">
-    <div class="mtitle"><span>多地點匯入</span><button class="mclose" id="mc-batch">✕</button></div>
+    <div class="mtitle"><span>新增多地點</span><button class="mclose" id="mc-batch">✕</button></div>
 
     <!-- 貼上清單快速匯入 -->
     <div style="background:var(--accent-l);border:1px solid var(--accent-m);border-radius:var(--r);padding:10px 12px;margin-bottom:12px">
@@ -857,6 +864,19 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
   <div class="modal">
     <div class="mtitle"><span>專案成員</span><button class="mclose" id="mc-members">✕</button></div>
     <div class="mbody" id="members-list"></div>
+  </div>
+</div>
+
+<!-- Modal: Lodging -->
+<div class="mwrap" id="m-lodging">
+  <div class="modal">
+    <div class="mtitle"><span>住宿設定</span><button class="mclose" id="mc-lodging">✕</button></div>
+    <div id="lg-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px"></div>
+    <div class="f"><label>住宿名稱</label><input id="lg-name" placeholder="例：上野東金屋"></div>
+    <div class="f"><label>Google Maps 連結（選填，用於計算移動時間）</label><input id="lg-map" placeholder="貼上飯店的地圖連結"></div>
+    <div class="f"><label>入住 ～ 退房</label><div style="display:flex;gap:8px;align-items:center"><input type="date" id="lg-in" style="flex:1;margin:0"><span style="font-size:12px;color:var(--text3);flex-shrink:0">～</span><input type="date" id="lg-out" style="flex:1;margin:0"></div></div>
+    <div class="f"><label>備註（選填）</label><input id="lg-note" placeholder="訂房編號、早餐時間…"></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="mclose" id="lg-del" style="display:none;font-size:12px;color:var(--coral);border:1px solid var(--coral);border-radius:7px;padding:6px 12px;width:auto;height:auto">刪除</button><button class="bprimary" id="lg-save" style="flex:1">儲存住宿</button></div>
   </div>
 </div>
 
