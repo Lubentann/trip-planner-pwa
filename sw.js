@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v28'; // UI 打磨：mini 徽章降色、回顧卡統計、emoji→SVG 圖示、點擊回饋
+const CACHE_NAME = 'trip-planner-v30'; // lodging UI + transit label unification
 const ASSETS = [
   './',
   './index.html',
