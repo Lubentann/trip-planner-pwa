@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v27'; // UI 批次同步＋導覽新步驟/小螢幕修正/起手卡＋導覽首步回首頁與 cl 分頁修正
+const CACHE_NAME = 'trip-planner-v28'; // UI 打磨：mini 徽章降色、回顧卡統計、emoji→SVG 圖示、點擊回饋
 const ASSETS = [
   './',
   './index.html',
