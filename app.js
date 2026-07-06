@@ -146,6 +146,14 @@ const IC = {
   download:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
   pinSmall:  '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24z"/></svg>',
   plus:      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  checkCircle: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  party:     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="M22 2l-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/><path d="M22 13l-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.7-.72 1.22-1.43 1.22H17"/><path d="M11 2l.33.82c.34.86-.2 1.82-1.11 1.98C9.52 4.9 9 5.52 9 6.23V7"/><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z"/></svg>',
+  flag:      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>',
+  heart:     '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+  clock:     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  walk:      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="13" cy="4" r="1.6"/><path d="M13 7v5l-2 9"/><path d="M13 12l3 9"/><path d="M13 8.5L9.5 11 8 14"/><path d="M13 9l3.5 2 2.5.5"/></svg>',
+  train:     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="13" rx="2"/><line x1="4" y1="11" x2="20" y2="11"/><line x1="8" y1="19" x2="6" y2="22"/><line x1="16" y1="19" x2="18" y2="22"/><circle cx="8.5" cy="13.5" r=".6" fill="currentColor"/><circle cx="15.5" cy="13.5" r=".6" fill="currentColor"/></svg>',
+  compass:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
 };
 
 // ── 準備清單常數 ──────────────────────────────────────────────────────────────
@@ -854,12 +862,12 @@ function renderHome() {
     const end_  = p.endDate ? new Date(p.endDate) : null;
     if (end_) end_.setHours(0,0,0,0);
     const diff = Math.round((start - today) / 86400000);
-    if (diff > 0)        countdownHtml = `<div class="countdown-badge">✈️ 距出發還有 ${diff} 天</div>`;
-    else if (diff === 0) countdownHtml = `<div class="countdown-badge" style="background:var(--coral-l);color:var(--coral)">🎉 今天出發！</div>`;
+    if (diff > 0)        countdownHtml = `<div class="countdown-badge">${IC.plane} 距出發還有 ${diff} 天</div>`;
+    else if (diff === 0) countdownHtml = `<div class="countdown-badge" style="background:var(--coral-l);color:var(--coral)">${IC.party} 今天出發！</div>`;
     else if (end_ && today <= end_) {
-      countdownHtml = `<div class="countdown-badge" style="background:var(--blue-l);color:var(--blue)">📍 旅途中 Day ${Math.round((today - start)/86400000)+1}</div>`;
+      countdownHtml = `<div class="countdown-badge" style="background:var(--blue-l);color:var(--blue)">${IC.pin} 旅途中 Day ${Math.round((today - start)/86400000)+1}</div>`;
     } else if (end_ && today > end_) {
-      countdownHtml = `<div class="countdown-badge" style="background:var(--surface2);color:var(--text3)">✅ 旅程已結束</div>`;
+      countdownHtml = `<div class="countdown-badge" style="background:var(--surface2);color:var(--text3)">${IC.checkCircle} 旅程已結束</div>`;
     }
   }
 
@@ -880,12 +888,28 @@ function renderHome() {
       const catStr = Object.entries(catCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${n}`).join(' · ');
       const favs = (db.wishlist[ap] || []).filter(w => (w.rating || 0) >= 4).slice(0, 3);
       const highlights = allTrips.filter(t => t.score).sort((a, b) => b.score - a.score).slice(0, 3);
+      // 補充統計：總停留/移動、最充實的一天、走訪率
+      const totalStayMin = allTrips.reduce((s, t) => s + (Number(t.duration) || 0), 0);
+      const _trOv = p.transit || {};
+      let totalMoveMin = 0;
+      let busiest = null;
+      allDays.forEach((d, i) => {
+        const dt = sortedDayTrips(d);
+        for (let k = 1; k < dt.length; k++) { const info = transitInfo(dt[k - 1], dt[k], _trOv); if (info) totalMoveMin += info.min; }
+        if (dt.length && (!busiest || dt.length > busiest.n)) busiest = { i, d, n: dt.length };
+      });
+      const _fmtH = m => m >= 60 ? `${Math.floor(m / 60)} 小時${m % 60 ? ' ' + m % 60 + ' 分' : ''}` : `${m} 分`;
+      const visitPct = Math.round(visitedCnt / allTrips.length * 100);
       recapHtml = `<div class="recap-card">
-        <div class="recap-title">🏁 旅程回顧</div>
-        <div class="recap-line">${allDays.length} 天 · ${allTrips.length} 個行程地點${visitedCnt ? ` · 走訪 <b>${visitedCnt}</b> 個` : ''}</div>
+        <div class="recap-title">${IC.flag} 旅程回顧</div>
+        <div class="recap-line">${allDays.length} 天 · ${allTrips.length} 個行程地點 · 走訪 <b>${visitedCnt}</b> 個（${visitPct}%）</div>
+        ${totalStayMin ? `<div class="recap-line">停留約 ${_fmtH(totalStayMin)}${totalMoveMin ? ` · 移動約 ${_fmtH(totalMoveMin)}` : ''}</div>` : ''}
+        ${busiest ? `<div class="recap-line">最充實的一天：Day ${busiest.i + 1}（${busiest.d.slice(5).replace('-', '/')}）安排了 ${busiest.n} 個地點</div>` : ''}
         ${catStr ? `<div class="recap-line">${esc(catStr)}</div>` : ''}
-        ${highlights.length ? `<div class="recap-line">⭐ 旅程亮點：${esc(highlights.map(t => `${t.name} ${t.score}★`).join('、'))}</div>` : ''}
-        ${favs.length ? `<div class="recap-line">❤️ 最愛：${esc(favs.map(w => w.name).join('、'))}</div>` : ''}
+        ${highlights.length
+          ? `<div class="recap-line"><span style="color:var(--amber)">${IC.star}</span> 旅程亮點：${esc(highlights.map(t => `${t.name} ${t.score}★`).join('、'))}</div>`
+          : `<div class="recap-line" style="color:var(--text3)">還沒有景點評分——到行程頁點 ⭐ 每日回顧補上評分，這裡就會出現你的旅程亮點</div>`}
+        ${favs.length ? `<div class="recap-line"><span style="color:var(--coral)">${IC.heart}</span> 最愛：${esc(favs.map(w => w.name).join('、'))}</div>` : ''}
         <button class="recap-share" id="recap-share">分享回顧</button>
       </div>`;
     }
@@ -1248,7 +1272,7 @@ function renderTimeline() {
     const _actionBtns = `<div class="dts-actions">${dayTrips.some(t => t.visited) ? `<button class="ib" id="reflect-btn" title="每日回顧評分" style="font-size:13px">⭐</button>` : ''}${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn" title="從地點清單新增">＋ 新增</button></div>`;
     // 固定兩行：第一行控制項（chip 左、動作鈕右），第二行純統計文字——避免窄版面隨機換行
     const timeSummary = `<div class="day-time-summary" style="padding-bottom:0">${totalMin
-      ? `<button class="day-start-chip" id="day-start-btn" title="設定當天出發時間">🕘 ${_dayStart} 出發</button>`
+      ? `<button class="day-start-chip" id="day-start-btn" title="設定當天出發時間">${IC.clock} ${_dayStart} 出發</button>`
       : ''}${_actionBtns}</div>${totalMin
       ? `<div class="day-time-summary" style="padding-top:2px"><span class="dts-stats">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal} 分</span>` : ''} · 已走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></span></div>`
       : ''}`;
@@ -1256,7 +1280,7 @@ function renderTimeline() {
     // 移動時間偏高（≥ 遊玩時間 40%）且各站都有座標 → 提示順路排序
     const _optimizable = dayTrips.length >= 3 && totalMin > 0 && transitTotal >= totalMin * 0.4 && dayTrips.every(t => tripCoords(t));
     const routeHint = _optimizable
-      ? `<div class="route-hint"><span>🧭 移動 ≈${transitTotal} 分偏多，順序可能繞路</span><button id="route-opt-btn">一鍵順路排序</button></div>`
+      ? `<div class="route-hint"><span>${IC.compass} 移動 ≈${transitTotal} 分偏多，順序可能繞路</span><button id="route-opt-btn">一鍵順路排序</button></div>`
       : '';
 
     html += timeSummary + routeHint;
@@ -1290,7 +1314,7 @@ function renderTimeline() {
           <div class="vc-row2">
             ${(() => { const u = itemMapUrl(t.mapUrl || (wishItem && wishItem.mapUrl), t.name); return u ? `<a class="vc-map" href="${esc(u)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''; })()}
             ${t.score ? `<span class="vc-score">⭐${t.score}</span><span class="vc-sep">·</span>` : ''}
-            ${t.time ? `<span class="vc-meta">${t.time}</span><span class="vc-sep">·</span>` : `<span class="vc-eta" title="預計抵達（依出發時間推算）">⏱ ${_etas[ti]}</span><span class="vc-sep">·</span>`}
+            ${t.time ? `<span class="vc-eta" title="自訂時間">${IC.clock} ${t.time}</span><span class="vc-sep">·</span>` : `<span class="vc-eta" title="預計抵達（依出發時間推算）">${IC.clock} ${_etas[ti]}</span><span class="vc-sep">·</span>`}
             <span class="vc-dur">${DUR[t.duration] || t.duration + '分'}</span>
             ${(() => { const addr = (wishItem && wishItem.address) || t.address || ''; return addr ? `<span class="vc-sep">·</span><span class="vc-addr">${esc(addr)}</span>` : ''; })()}
           </div>
@@ -1348,7 +1372,7 @@ function renderTimeline() {
     const dateStr = days[currentDayIdx];
     const p = db.projects.find(x => x.id === ap);
     const cur = (p?.dayStartTimes || {})[dateStr] || '09:00';
-    btn.innerHTML = `🕘 <input type="time" class="ds-input" value="${cur}"> 出發`;
+    btn.innerHTML = `${IC.clock} <input type="time" class="ds-input" value="${cur}"> 出發`;
     const inp = btn.querySelector('input');
     inp.focus();
     const save = async () => {
@@ -2807,7 +2831,7 @@ function transitInfo(a, b, overrides) {
 function transitRowHtml(a, b, overrides) {
   const info = transitInfo(a, b, overrides);
   if (!info) return '';
-  const icon = info.mode === 'walk' ? '🚶' : '🚋';
+  const icon = info.mode === 'walk' ? IC.walk : IC.train;
   const label = info.manual ? `${icon} ${info.min}分` : `${icon} ≈${info.min}分`;
   return `<div class="transit-row ${info.manual ? 'manual' : ''}" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}" title="點擊查看 Google Maps 路線">${label}<button class="tr-edit" data-tr-edit="${a.id}_${b.id}" title="自訂移動時間"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button></div>`;
 }
