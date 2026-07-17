@@ -909,7 +909,8 @@ function renderHome() {
         <div class="cl-prog-track"><div class="cl-prog-fill" id="cl-prog-fill" style="width:0%"></div></div>
         <div id="cl-body"></div>
       </div>
-    </div>`;
+    </div>
+    <button id="btn-tour-replay" style="display:flex;align-items:center;gap:5px;margin:18px auto 6px;background:none;border:1px solid var(--border2);border-radius:16px;padding:7px 16px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>重新播放教學導覽</button>`;
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
   el.querySelectorAll('[data-starter-goto]').forEach(s => s.addEventListener('click', () => showTab(s.dataset.starterGoto)));
@@ -918,6 +919,7 @@ function renderHome() {
   if (memBtn) memBtn.addEventListener('click', openMembersModal);
   const clToggle = el.querySelector('#cl-hdr-toggle');
   if (clToggle) clToggle.addEventListener('click', () => { window._clExpanded = !window._clExpanded; renderHome(); });
+  on('btn-tour-replay', 'click', () => startTour());
   clLoad(ap, el.querySelector('#cl-body'));
 }
 
@@ -940,8 +942,7 @@ function renderWish() {
   // 取得所有類別
   const allCats = [...new Set(wishes.map(w => w.category))];
 
-  const _wishCount = wishes.filter(w => w && w.name && w.id !== '_tour_sample').length;
-  let html = `<div class="pg-sticky-head"><div class="shd"><h2>地點清單 <span style="font-size:11px;font-weight:400;color:var(--text3)">當前地點數 ${_wishCount} 個</span></h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">新增多地點</button></div></div>`;
+  let html = `<div class="pg-sticky-head"><div class="shd"><h2>地點清單</h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">新增多地點</button></div></div>`;
 
   // 搜尋欄 + 篩選 chips
   html += `<div id="wish-search-row">
@@ -1190,7 +1191,7 @@ function renderTimeline() {
   let html = `<div class="pg-sticky-head">
     <div id="mini-date-bar">${miniBar}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
-      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='day' ? `<button class="day-nav" id="day-prev" title="前一天"${currentDayIdx===0?' disabled':''}>‹</button>` : ''}${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView==='day' ? `<button class="day-nav" id="day-next" title="後一天"${currentDayIdx>=days.length-1?' disabled':''}>›</button>` : ''}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3)"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
+      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3)"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
       ${viewToggle}
     </div>
     ${timelineView === 'day' && _customName ? `<div id="day-name-subtitle">- ${esc(_customName)}</div>` : ''}`;
@@ -1258,12 +1259,12 @@ function renderTimeline() {
 
     // 提案A：出發時間＋統計＋動作鈕合併成單一工具列（原標題列已移除）
     const _actionBtns = `<div class="dts-actions">${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn" title="從地點清單新增">＋ 新增</button></div>`;
-    // 固定兩行：第一行控制項（chip 左、動作鈕右），第二行純統計文字——避免窄版面隨機換行
+    // 單行：出發 chip ＋ 統計文字（過長自動省略）＋ 動作鈕——2026-07-17 精簡提案 b
     const timeSummary = `<div class="day-time-summary" style="padding-bottom:0">${totalMin
-      ? `<button class="day-start-chip" id="day-start-btn" title="設定當天出發時間">${IC.clock} ${_dayStart} 出發</button>`
-      : ''}${_actionBtns}</div>${totalMin
-      ? `<div class="day-time-summary" style="padding-top:2px"><span class="dts-stats">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal} 分</span>` : ''} · 已走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></span></div>`
-      : ''}`;
+      ? `<button class="day-start-chip" id="day-start-btn" title="設定當天出發時間" style="flex-shrink:0">${IC.clock} ${_dayStart}</button>`
+      : ''}${totalMin
+      ? `<span class="dts-stats" style="flex:1 1 auto;min-width:172px;white-space:nowrap"><span class="hl">${dayTrips.length}</span> 點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + '時' : ''}${totalMin%60 > 0 ? totalMin%60 + '分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal}分</span>` : ''} · 走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></span>`
+      : ''}${_actionBtns}</div>`;
 
     // 順路排序:試算 nearest-neighbor,只有省 >20 分且 >15% 才提示;dismiss 記地點數,新增時再提示
     const _canOpt = dayTrips.length >= 3 && dayTrips.every(t => tripCoords(t));
@@ -1276,7 +1277,7 @@ function renderTimeline() {
     const _routeDismissAt = Number(localStorage.getItem(`routeHintDismiss:${ap}:${dateStr}`) || 0);
     const _showRouteHint = _optSavedMin > 20 && _optSavedPct > 0.15 && dayTrips.length > _routeDismissAt;
     const routeHint = _showRouteHint
-      ? `<div class="route-hint"><span>${IC.compass} 順路排序可省 ≈${_optSavedMin} 分</span><div style="display:flex;gap:6px;align-items:center"><button id="route-opt-btn">一鍵順路排序</button><button id="route-opt-dismiss" class="ib" title="不再提示，直到新增地點" style="width:20px;height:20px">${IC.close}</button></div></div>`
+      ? `<div class="route-hint"><span>${IC.compass} 順路排序可省 ≈${_optSavedMin} 分</span><div style="display:flex;gap:6px;align-items:center"><button id="route-opt-btn">一鍵順路排序</button><button id="route-opt-dismiss" title="不再提示，直到新增地點" style="background:none;color:var(--text3);border:1px solid var(--border2);font-weight:500">忽略</button></div></div>`
       : '';
 
     html += `${timeSummary}${routeHint}</div>`;
@@ -1361,8 +1362,7 @@ function renderTimeline() {
   on('vt-overview', 'click', () => { timelineView = 'overview'; renderTimeline(); });
 
   // 前一天 / 後一天
-  on('day-prev', 'click', () => { if (currentDayIdx > 0) { currentDayIdx--; renderTimeline(); } });
-  on('day-next', 'click', () => { if (currentDayIdx < days.length - 1) { currentDayIdx++; renderTimeline(); } });
+  // day-prev/day-next 左右鍵已移除（2026-07-17 Allen）：切天改用上方日期列與左右滑動手勢
 
   // 當天出發時間（inline 編輯，模式同 editTransit）
   on('day-start-btn', 'click', () => {
@@ -1443,16 +1443,18 @@ function renderTimeline() {
   // reflect / rp 已移除
   el.querySelectorAll('[data-edit-trip]').forEach(b => b.addEventListener('click', () => editTrip(b.dataset.editTrip)));
   el.querySelectorAll('[data-del-trip]').forEach(b  => b.addEventListener('click', () => delTrip(b.dataset.delTrip)));
-  el.querySelectorAll('.transit-row').forEach(row => row.addEventListener('click', (e) => {
-    if (e.target.closest('.tr-edit') || e.target.closest('.tr-mode') || e.target.tagName === 'INPUT') return;
-    openTransitDir(row.dataset.from, row.dataset.to, row.dataset.mode);
-  }));
   el.querySelectorAll('.tr-mode').forEach(m => m.addEventListener('click', (e) => {
     e.stopPropagation();
     openTransitModeMenu(m.dataset.trMode, m);
   }));
-  el.querySelectorAll('[data-tr-edit]').forEach(b => b.addEventListener('click', (e) => {
-    e.stopPropagation(); editTransit(b.dataset.trEdit, b);
+  // 點時間 = 編輯移動時間；點紙飛機 = 開 Google Maps 路線（與 Extension 行為一致）
+  el.querySelectorAll('.tr-label[data-tr-key]').forEach(lbl => lbl.addEventListener('click', (e) => {
+    e.stopPropagation(); editTransit(lbl.dataset.trKey, lbl);
+  }));
+  el.querySelectorAll('[data-tr-nav]').forEach(b => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const row = b.closest('.transit-row');
+    if (row) openTransitDir(row.dataset.from, row.dataset.to, row.dataset.mode);
   }));
   el.querySelectorAll('[data-visit]').forEach(b => b.addEventListener('click', (e) => {
     e.stopPropagation(); toggleVisited(b.dataset.visit, b);
@@ -3058,7 +3060,7 @@ function transitRowHtml(a, b, overrides) {
   const icon = info.mode === 'walk' ? IC.walk : info.mode === 'car' ? IC.car : IC.train;
   const chev = '<svg class="tr-chev" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
   const key = `${a.id}_${b.id}`;
-  return `<div class="transit-row" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}"><span class="tr-mode" data-tr-mode="${key}" title="選擇交通方式">${icon}${chev}</span><span class="tr-label" title="開啟 Google Maps 路線">${info.min}分</span><button class="tr-edit" data-tr-edit="${key}" title="自訂移動時間"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button></div>`;
+  return `<div class="transit-row ${info.manual ? 'manual' : ''}" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}"><button class="tr-nav" data-tr-nav="${key}" title="開啟 Google Maps 路線"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></button><span class="tr-mode" data-tr-mode="${key}" title="選擇交通方式">${icon}${chev}</span><span class="tr-label" data-tr-key="${key}" title="點擊編輯移動時間">${info.min}分</span></div>`;
 }
 
 function openTransitDir(fromId, toId, mode) {
@@ -3340,7 +3342,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Bottom bar
   on('btn-nav-route',  'click', openRouteNav);
   on('btn-open-export','click', openExport);
-  on('btn-tour-replay','click', () => { const m=$('auth-menu'); if(m) m.style.display='none'; startTour(); });
+  // btn-tour-replay 已移到首頁（renderHome 內綁定）
   on('tour-next', 'click', nextTourStep);
   on('tour-prev', 'click', prevTourStep);
   on('tour-skip', 'click', () => endTour(false));
