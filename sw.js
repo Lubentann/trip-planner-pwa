@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v41'; // mobile-first redesign: bottom nav, FAB, gestures, bottom sheets
+const CACHE_NAME = 'trip-planner-v43'; // declutter: tour btn to home, one-line day summary, wish count removed
 const ASSETS = [
   './',
   './index.html',
