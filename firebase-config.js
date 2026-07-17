@@ -90,10 +90,14 @@ function _arrayToMap(arr) {
   return map;
 }
 
+// Also normalizes legacy category value（2026-07 類別改名：餐廳 → 餐飲）
 function _mapToArray(map) {
   if (!map) return [];
-  if (Array.isArray(map)) return map;
-  return Object.values(map).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const arr = Array.isArray(map)
+    ? map
+    : Object.values(map).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  arr.forEach(item => { if (item && item.category === '餐廳') item.category = '餐飲'; });
+  return arr;
 }
 
 // ═══════════════════════════════════════════════════════════════════
