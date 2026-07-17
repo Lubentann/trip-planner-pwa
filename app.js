@@ -126,7 +126,7 @@ var chrome = window.chromeShim;
 // =============================================================
 //  Constants
 // =============================================================
-const CC    = { 景點:'t-teal', 交通:'t-amber', 住宿:'t-blue', 餐廳:'t-coral', 購物:'t-amber', 其他:'t-teal' };
+const CC    = { 景點:'t-teal', 交通:'t-purple', 住宿:'t-blue', 餐廳:'t-coral', 購物:'t-amber', 其他:'t-gray' };
 const DUR   = { 30:'30分', 60:'1小時', 90:'1.5小時', 120:'2小時', 180:'3小時', 240:'3小時+' };
 const WKDAY = ['日','一','二','三','四','五','六'];
 
@@ -153,6 +153,7 @@ const IC = {
   clock:     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   walk:      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="13" cy="4" r="1.6"/><path d="M13 7v5l-2 9"/><path d="M13 12l3 9"/><path d="M13 8.5L9.5 11 8 14"/><path d="M13 9l3.5 2 2.5.5"/></svg>',
   train:     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="3" width="16" height="13" rx="2"/><line x1="4" y1="11" x2="20" y2="11"/><line x1="8" y1="19" x2="6" y2="22"/><line x1="16" y1="19" x2="18" y2="22"/><circle cx="8.5" cy="13.5" r=".6" fill="currentColor"/><circle cx="15.5" cy="13.5" r=".6" fill="currentColor"/></svg>',
+  car:       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3v-4l2-5h14l2 5v4h-2"/><path d="M7 17h10"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>',
   compass:   '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
   bed:       '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>',
 };
@@ -872,50 +873,6 @@ function renderHome() {
     }
   }
 
-  // 旅程結束後顯示回顧卡片
-  let recapHtml = '';
-  if (p.startDate && p.endDate) {
-    const _today = new Date(); _today.setHours(0, 0, 0, 0);
-    const _end = new Date(p.endDate); _end.setHours(0, 0, 0, 0);
-    const allTrips = db.trips[ap] || [];
-    if (_today > _end && allTrips.length) {
-      const visitedCnt = allTrips.filter(t => t.visited).length;
-      const catCount = {};
-      allTrips.forEach(t => {
-        const w = t.wishId ? (db.wishlist[ap] || []).find(x => x.id === t.wishId) : null;
-        const c = (w ? w.category : t.category) || '其他';
-        catCount[c] = (catCount[c] || 0) + 1;
-      });
-      const catStr = Object.entries(catCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${n}`).join(' · ');
-      const favs = (db.wishlist[ap] || []).filter(w => (w.rating || 0) >= 4).slice(0, 3);
-      const highlights = allTrips.filter(t => t.score).sort((a, b) => b.score - a.score).slice(0, 3);
-      // 補充統計：總停留/移動、最充實的一天、走訪率
-      const totalStayMin = allTrips.reduce((s, t) => s + (Number(t.duration) || 0), 0);
-      const _trOv = p.transit || {};
-      let totalMoveMin = 0;
-      let busiest = null;
-      allDays.forEach((d, i) => {
-        const dt = sortedDayTrips(d);
-        for (let k = 1; k < dt.length; k++) { const info = transitInfo(dt[k - 1], dt[k], _trOv); if (info) totalMoveMin += info.min; }
-        if (dt.length && (!busiest || dt.length > busiest.n)) busiest = { i, d, n: dt.length };
-      });
-      const _fmtH = m => m >= 60 ? `${Math.floor(m / 60)} 小時${m % 60 ? ' ' + m % 60 + ' 分' : ''}` : `${m} 分`;
-      const visitPct = Math.round(visitedCnt / allTrips.length * 100);
-      recapHtml = `<div class="recap-card">
-        <div class="recap-title">${IC.flag} 旅程回顧</div>
-        <div class="recap-line">${allDays.length} 天 · ${allTrips.length} 個行程地點 · 走訪 <b>${visitedCnt}</b> 個（${visitPct}%）</div>
-        ${totalStayMin ? `<div class="recap-line">停留約 ${_fmtH(totalStayMin)}${totalMoveMin ? ` · 移動約 ${_fmtH(totalMoveMin)}` : ''}</div>` : ''}
-        ${busiest ? `<div class="recap-line">最充實的一天：Day ${busiest.i + 1}（${busiest.d.slice(5).replace('-', '/')}）安排了 ${busiest.n} 個地點</div>` : ''}
-        ${catStr ? `<div class="recap-line">${esc(catStr)}</div>` : ''}
-        ${highlights.length
-          ? `<div class="recap-line"><span style="color:var(--amber)">${IC.star}</span> 旅程亮點：${esc(highlights.map(t => `${t.name} ${t.score}★`).join('、'))}</div>`
-          : `<div class="recap-line" style="color:var(--text3)">還沒有景點評分——到行程頁點 ⭐ 每日回顧補上評分，這裡就會出現你的旅程亮點</div>`}
-        ${favs.length ? `<div class="recap-line"><span style="color:var(--coral)">${IC.heart}</span> 最愛：${esc(favs.map(w => w.name).join('、'))}</div>` : ''}
-        <button class="recap-share" id="recap-share">分享回顧</button>
-      </div>`;
-    }
-  }
-
   const memberCount = p.members ? Object.keys(p.members).length : 1;
 
   // 旅程結束後準備清單已無日常用途 → 預設摺疊，點標題可展開
@@ -936,7 +893,6 @@ function renderHome() {
       ${p.destination?`<div style="font-size:12px;color:var(--text3);margin-bottom:2px">${esc(p.destination)}</div>`:''}
       ${dateStr?`<div style="font-size:12px;color:var(--text3);margin-bottom:10px">${dateStr}</div>`:'<div style="margin-bottom:10px"></div>'}
       ${countdownHtml}
-      ${recapHtml}
       ${starterHtml}
       <div class="hstats">
         <div class="hstat"><div class="hsv">${allDays.length}</div><div class="hsl">天行程</div></div>
@@ -957,7 +913,7 @@ function renderHome() {
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
   el.querySelectorAll('[data-starter-goto]').forEach(s => s.addEventListener('click', () => showTab(s.dataset.starterGoto)));
-  on('recap-share', 'click', shareRecap);
+  // recap-share 已移除
   const memBtn = el.querySelector('#btn-open-members');
   if (memBtn) memBtn.addEventListener('click', openMembersModal);
   const clToggle = el.querySelector('#cl-hdr-toggle');
@@ -984,7 +940,8 @@ function renderWish() {
   // 取得所有類別
   const allCats = [...new Set(wishes.map(w => w.category))];
 
-  let html = `<div class="shd"><h2>地點清單</h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">新增多地點</button><button class="add-btn" id="wish-add-btn">新增地點</button></div></div>`;
+  const _wishCount = wishes.filter(w => w && w.name && w.id !== '_tour_sample').length;
+  let html = `<div class="pg-sticky-head"><div class="shd"><h2>地點清單 <span style="font-size:11px;font-weight:400;color:var(--text3)">當前地點數 ${_wishCount} 個</span></h2><div style="display:flex;gap:6px"><button class="add-btn batch" id="wish-batch-btn">新增多地點</button></div></div>`;
 
   // 搜尋欄 + 篩選 chips
   html += `<div id="wish-search-row">
@@ -1004,7 +961,7 @@ function renderWish() {
       </select>
       <button id="wish-sort-dir" title="切換排序方向" style="font-size:12px;width:26px;height:26px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">${wishFilter.sortDir==='desc'?'↓':'↑'}</button>
     </div>
-  </div>`;
+  </div></div>`;
 
   if (!wishes.length) {
     el.innerHTML = html + `<div class="empty"><div class="ei">${IC.star}</div><p>還沒有地點<br>在 Google Maps 點底部按鈕加入</p></div>`;
@@ -1063,7 +1020,7 @@ function renderWish() {
       const heartHtml = buildHeartHtml('wish-heart', w.id, rating);
       const scheduledBadge = dayStr ? `<span class="sched-done-tag">已排 ${dayStr}</span>` : '';
 
-      html += `<div class="card wish-card" data-wish-id="${w.id}">
+      html += `<div class="card wish-card cat-${CC[w.category] || 't-teal'}" data-wish-id="${w.id}">
         <div class="vc-row1">
           <input type="checkbox" class="wish-check" data-wish-id="${w.id}">
           <span class="vc-name-wrap"><span class="vc-name">${esc(w.name)}</span><span class="tag ${CC[w.category] || 't-teal'}">${esc(w.category)}</span></span>
@@ -1107,15 +1064,32 @@ function bindWishControls(el) {
     requestAnimationFrame(() => { filterBar.scrollLeft = window._wishFilterScrollLeft; });
   }
 
-  on('wish-add-btn',  'click', () => openWish());
+  // 新增單一地點改由 FAB（#wish-fab，init 時綁定）觸發
   on('wish-batch-btn','click', openBatchImport);
 
-  // 搜尋
+  // 搜尋 — debounce + 中文 IME 支援 + 游標位置還原
   const searchInput = $('wish-search');
   if (searchInput) {
-    searchInput.addEventListener('input', () => {
+    if (window._wishSearchFocus) {
+      const { start, end } = window._wishSearchFocus;
+      searchInput.focus();
+      try { searchInput.setSelectionRange(start, end); } catch(e) {}
+      window._wishSearchFocus = null;
+    }
+    const _commit = () => {
+      if (!document.body.contains(searchInput)) return;
+      window._wishSearchFocus = { start: searchInput.selectionStart, end: searchInput.selectionEnd };
       wishFilter.query = searchInput.value;
       renderWish();
+    };
+    searchInput.addEventListener('input', e => {
+      if (e.isComposing) return;
+      clearTimeout(window._wishSearchDbc);
+      window._wishSearchDbc = setTimeout(_commit, 250);
+    });
+    searchInput.addEventListener('compositionend', () => {
+      clearTimeout(window._wishSearchDbc);
+      window._wishSearchDbc = setTimeout(_commit, 100);
     });
   }
   // 篩選 chips
@@ -1150,6 +1124,9 @@ function bindWishControls(el) {
     const checked = [...el.querySelectorAll('.wish-check:checked')];
     const bar = $('wish-multi-bar');
     if (bar) bar.style.display = checked.length ? 'flex' : 'none';
+    // 多選中收起 FAB，避免與工具列重疊
+    const fab = $('wish-fab');
+    if (fab) fab.classList.toggle('show', !checked.length);
     const lbl = $('wish-sel-label');
     if (lbl) lbl.textContent = `已選 ${checked.length} 個地點`;
   }
@@ -1210,7 +1187,7 @@ function renderTimeline() {
   const _activeDateKey = timelineView === 'day' ? days[currentDayIdx] : null;
   const _customName = _activeDateKey ? (_dayNames[_activeDateKey] || '') : '';
 
-  let html = `
+  let html = `<div class="pg-sticky-head">
     <div id="mini-date-bar">${miniBar}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
       <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='day' ? `<button class="day-nav" id="day-prev" title="前一天"${currentDayIdx===0?' disabled':''}>‹</button>` : ''}${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView==='day' ? `<button class="day-nav" id="day-next" title="後一天"${currentDayIdx>=days.length-1?' disabled':''}>›</button>` : ''}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3)"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
@@ -1221,7 +1198,7 @@ function renderTimeline() {
   if (timelineView === 'overview') {
     $('timeline-bar').classList.remove('show');
     // 全覽模式
-    html += `<div id="timeline-overview" class="show">`;
+    html += `</div><div id="timeline-overview" class="show">`;
     days.forEach((d, i) => {
       const dayTrips = sortedDayTrips(d);
       const [, m, dd] = d.split('-').map(Number);
@@ -1280,7 +1257,7 @@ function renderTimeline() {
     const _pmArrive = _pmSeg ? _toHM(_etaCursor + _pmSeg.min) : '';
 
     // 提案A：出發時間＋統計＋動作鈕合併成單一工具列（原標題列已移除）
-    const _actionBtns = `<div class="dts-actions">${dayTrips.some(t => t.visited) ? `<button class="ib" id="reflect-btn" title="每日回顧評分" style="font-size:13px">⭐</button>` : ''}${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn" title="從地點清單新增">＋ 新增</button></div>`;
+    const _actionBtns = `<div class="dts-actions">${dayTrips.length ? `<button class="ib" id="share-day-btn" title="分享今日行程"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></button><button class="ib" id="move-day-btn" title="整天移至其他日期"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M10 14l3 3-3 3"/></svg></button>` : ''}<button class="add-btn" id="timeline-add-btn" title="從地點清單新增">＋ 新增</button></div>`;
     // 固定兩行：第一行控制項（chip 左、動作鈕右），第二行純統計文字——避免窄版面隨機換行
     const timeSummary = `<div class="day-time-summary" style="padding-bottom:0">${totalMin
       ? `<button class="day-start-chip" id="day-start-btn" title="設定當天出發時間">${IC.clock} ${_dayStart} 出發</button>`
@@ -1288,13 +1265,21 @@ function renderTimeline() {
       ? `<div class="day-time-summary" style="padding-top:2px"><span class="dts-stats">共 <span class="hl">${dayTrips.length}</span> 個地點 · 預計 <span class="hl">${Math.floor(totalMin/60) > 0 ? Math.floor(totalMin/60) + ' 小時' : ''}${totalMin%60 > 0 ? totalMin%60 + ' 分' : ''}</span>${transitTotal ? ` · 移動 <span class="hl">≈${transitTotal} 分</span>` : ''} · 已走訪 <span class="hl" id="visit-progress">${_visitedCnt}/${dayTrips.length}</span></span></div>`
       : ''}`;
 
-    // 移動時間偏高（≥ 遊玩時間 40%）且各站都有座標 → 提示順路排序
-    const _optimizable = dayTrips.length >= 3 && totalMin > 0 && transitTotal >= totalMin * 0.4 && dayTrips.every(t => tripCoords(t));
-    const routeHint = _optimizable
-      ? `<div class="route-hint"><span>${IC.compass} 移動 ≈${transitTotal} 分偏多，順序可能繞路</span><button id="route-opt-btn">一鍵順路排序</button></div>`
+    // 順路排序:試算 nearest-neighbor,只有省 >20 分且 >15% 才提示;dismiss 記地點數,新增時再提示
+    const _canOpt = dayTrips.length >= 3 && dayTrips.every(t => tripCoords(t));
+    let _optSavedMin = 0, _optSavedPct = 0;
+    if (_canOpt) {
+      const _optTotal = computeOptimizedTransitTotal(dayTrips, _transit);
+      _optSavedMin = transitTotal - _optTotal;
+      _optSavedPct = transitTotal > 0 ? _optSavedMin / transitTotal : 0;
+    }
+    const _routeDismissAt = Number(localStorage.getItem(`routeHintDismiss:${ap}:${dateStr}`) || 0);
+    const _showRouteHint = _optSavedMin > 20 && _optSavedPct > 0.15 && dayTrips.length > _routeDismissAt;
+    const routeHint = _showRouteHint
+      ? `<div class="route-hint"><span>${IC.compass} 順路排序可省 ≈${_optSavedMin} 分</span><div style="display:flex;gap:6px;align-items:center"><button id="route-opt-btn">一鍵順路排序</button><button id="route-opt-dismiss" class="ib" title="不再提示，直到新增地點" style="width:20px;height:20px">${IC.close}</button></div></div>`
       : '';
 
-    html += timeSummary + routeHint;
+    html += `${timeSummary}${routeHint}</div>`;
 
     // 住宿列
     const _nights = l => Math.round((new Date(l.checkOut) - new Date(l.checkIn)) / 86400000);
@@ -1333,7 +1318,6 @@ function renderTimeline() {
           </div>
           <div class="vc-row2">
             ${(() => { const u = itemMapUrl(t.mapUrl || (wishItem && wishItem.mapUrl), t.name); return u ? `<a class="vc-map" href="${esc(u)}" target="_blank">地圖</a><span class="vc-sep">·</span>` : ''; })()}
-            ${t.score ? `<span class="vc-score">⭐${t.score}</span><span class="vc-sep">·</span>` : ''}
             ${t.time ? `<span class="vc-eta" title="自訂時間">${IC.clock} ${t.time}</span><span class="vc-sep">·</span>` : `<span class="vc-eta" title="預計抵達（依出發時間推算）">${IC.clock} ${_etas[ti]}</span><span class="vc-sep">·</span>`}
             <span class="vc-dur">${DUR[t.duration] || t.duration + '分'}</span>
             ${(() => { const addr = (wishItem && wishItem.address) || t.address || ''; return addr ? `<span class="vc-sep">·</span><span class="vc-addr">${esc(addr)}</span>` : ''; })()}
@@ -1349,13 +1333,7 @@ function renderTimeline() {
     }
 
     // 晚間回顧提示：當天 20:00 後仍有已走訪未評分的地點時顯示（關閉狀態記錄在 localStorage，不佔 Firebase 寫入額度）
-    const _pad2 = n => String(n).padStart(2, '0');
-    const _now = new Date();
-    const _todayStr = `${_now.getFullYear()}-${_pad2(_now.getMonth() + 1)}-${_pad2(_now.getDate())}`;
-    const _unratedCnt = dayTrips.filter(t => t.visited && !t.score).length;
-    if (dateStr === _todayStr && _now.getHours() >= 20 && _unratedCnt > 0 && !localStorage.getItem(`reflectDismiss:${ap}:${dateStr}`)) {
-      html += `<div class="reflect-prompt" id="reflect-prompt">今天走訪了 ${_unratedCnt} 個地方，幫它們打個分吧 ⭐<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="rp-go" id="rp-go">開始回顧</button><button class="rp-later" id="rp-later">稍後再說</button></div></div>`;
-    }
+    // reflect-prompt 已移除
   }
 
   el.innerHTML = html;
@@ -1415,6 +1393,11 @@ function renderTimeline() {
 
   // 一鍵順路排序
   on('route-opt-btn', 'click', () => optimizeDayOrder(days[currentDayIdx]));
+  on('route-opt-dismiss', 'click', () => {
+    const _d = days[currentDayIdx];
+    localStorage.setItem(`routeHintDismiss:${ap}:${_d}`, String(sortedDayTrips(_d).length));
+    renderTimeline();
+  });
 
   // 今日主題內聯編輯
   const _openDayNameEdit = (anchor) => {
@@ -1457,14 +1440,16 @@ function renderTimeline() {
   on('move-day-btn', 'click', openMoveDay);
   on('share-day-btn', 'click', shareDay);
   on('lodge-row', 'click', (e) => { if (e.target.closest('a')) return; openLodging(days[currentDayIdx]); });
-  on('reflect-btn', 'click', () => openReflect(days[currentDayIdx], currentDayIdx));
-  on('rp-go', 'click', () => { const rp = $('reflect-prompt'); if (rp) rp.remove(); openReflect(days[currentDayIdx], currentDayIdx); });
-  on('rp-later', 'click', () => { localStorage.setItem(`reflectDismiss:${ap}:${days[currentDayIdx]}`, '1'); const rp = $('reflect-prompt'); if (rp) rp.remove(); });
+  // reflect / rp 已移除
   el.querySelectorAll('[data-edit-trip]').forEach(b => b.addEventListener('click', () => editTrip(b.dataset.editTrip)));
   el.querySelectorAll('[data-del-trip]').forEach(b  => b.addEventListener('click', () => delTrip(b.dataset.delTrip)));
   el.querySelectorAll('.transit-row').forEach(row => row.addEventListener('click', (e) => {
-    if (e.target.closest('.tr-edit') || e.target.tagName === 'INPUT') return;
+    if (e.target.closest('.tr-edit') || e.target.closest('.tr-mode') || e.target.tagName === 'INPUT') return;
     openTransitDir(row.dataset.from, row.dataset.to, row.dataset.mode);
+  }));
+  el.querySelectorAll('.tr-mode').forEach(m => m.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openTransitModeMenu(m.dataset.trMode, m);
   }));
   el.querySelectorAll('[data-tr-edit]').forEach(b => b.addEventListener('click', (e) => {
     e.stopPropagation(); editTransit(b.dataset.trEdit, b);
@@ -1744,21 +1729,67 @@ function getCheckedDays() {
   return [...document.querySelectorAll('#export-days input:checked')].map(cb => ({ date: cb.dataset.date, idx: Number(cb.dataset.idx) }));
 }
 
+// ── 匯出共用：單日資料（ETA 鏈與 renderTimeline 同邏輯：出發時間 → 交通 → 指定時間覆寫）──
+const EXP_MODE = { walk: '🚶步行', transit: '🚇大眾運輸', car: '🚗開車' };
+function _expDurTxt(d) { return DUR[d] || (d ? `${d}分` : ''); }
+function _expHrMin(total) {
+  if (!total) return '0分';
+  const h = Math.floor(total / 60), m = total % 60;
+  return `${h > 0 ? h + '小時' : ''}${m > 0 ? m + '分' : ''}`;
+}
+function buildDayExport(date) {
+  const p = db.projects.find(x => x.id === ap) || {};
+  const dayTrips = sortedDayTrips(date);
+  const ov = p.transit || {};
+  const lodgeAM = morningLodging(date), lodgePM = eveningLodging(date);
+  const amSeg = dayTrips.length ? lodgeTransit(lodgeAM, dayTrips[0]) : null;
+  const pmSeg = dayTrips.length ? lodgeTransit(lodgePM, dayTrips[dayTrips.length - 1]) : null;
+  const toMin = tm => { const [h, m] = String(tm).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  const toHM  = min => `${String(Math.floor((min % 1440) / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+  const startTime = (p.dayStartTimes || {})[date] || '09:00';
+  const etas = [], gaps = [];   // gaps[i] = 前往第 i 站的交通（i ≥ 1）
+  let cursor = toMin(startTime), transitTotal = 0, stayTotal = 0;
+  dayTrips.forEach((t, i) => {
+    if (i > 0) {
+      const info = transitInfo(dayTrips[i - 1], t, ov);
+      gaps[i] = info;
+      if (info) { cursor += info.min; transitTotal += info.min; }
+    } else if (amSeg) { cursor += amSeg.min; transitTotal += amSeg.min; }
+    if (t.time) cursor = toMin(t.time);
+    etas.push(toHM(cursor));
+    cursor += Number(t.duration) || 0;
+    stayTotal += Number(t.duration) || 0;
+  });
+  if (pmSeg) transitTotal += pmSeg.min;
+  const backAt = pmSeg ? toHM(cursor + pmSeg.min) : '';
+  const [y, m, d] = date.split('-').map(Number);
+  return {
+    dayTrips, etas, gaps, amSeg, pmSeg, lodgeAM, lodgePM, backAt,
+    startTime, dayName: (p.dayNames || {})[date] || '',
+    stayTotal, transitTotal,
+    month: m, dayNum: d, weekday: '日一二三四五六'[new Date(y, m - 1, d).getDay()],
+  };
+}
+
 function exportCSV() {
   const p = db.projects.find(x => x.id === ap) || {};
   const checked = getCheckedDays();
   if (!checked.length) { showToast('請選擇要匯出的天'); return; }
 
-  const rows = [['專案','日期','Day','星期','地點名稱','類別','時間','停留時間','備註','Maps連結']];
+  const rows = [['日期','Day','星期','日名稱','順序','預計抵達','指定時間','地點名稱','類別','停留(分)','往下一站','交通(分)','備註','地址','Maps連結','當晚住宿']];
   checked.forEach(({ date, idx }) => {
-    const [y, m, d] = date.split('-').map(Number);
-    const wk = '日一二三四五六'[new Date(y, m - 1, d).getDay()];
-    const dayTrips = sortedDayTrips(date);   // 統一使用共用函式
-    if (!dayTrips.length) {
-      rows.push([p.name || '', date, `Day ${idx + 1}`, `週${wk}`, '（無行程）', '', '', '', '', '']);
+    const D = buildDayExport(date);
+    const base = [date, `Day ${idx + 1}`, `週${D.weekday}`, D.dayName];
+    const lodge = D.lodgePM ? D.lodgePM.name : '';
+    if (!D.dayTrips.length) {
+      rows.push([...base, '', '', '', '（無行程）', '', '', '', '', '', '', '', lodge]);
     } else {
-      dayTrips.forEach(t => {
-        rows.push([p.name || '', date, `Day ${idx + 1}`, `週${wk}`, t.name, t.category || '', t.time || '', DUR[t.duration] || '', t.note || '', t.mapUrl || '']);
+      D.dayTrips.forEach((t, i) => {
+        const next = D.gaps[i + 1];   // 這一站 → 下一站
+        const wItem = (db.wishlist[ap] || []).find(x => x.id === t.wishId);
+        rows.push([...base, i + 1, D.etas[i], t.time || '', t.name, t.category || '',
+          t.duration || '', next ? (EXP_MODE[next.mode] || next.mode) : '', next ? next.min : '',
+          t.note || '', (wItem && wItem.address) || '', t.mapUrl || '', lodge]);
       });
     }
   });
@@ -1777,27 +1808,29 @@ function copyText() {
   const checked = getCheckedDays();
   if (!checked.length) { showToast('請選擇要複製的天'); return; }
 
+  const fmtDate = d => d ? d.replace(/-/g, '/') : '';
   let text = `✈️ ${p.name || '旅遊行程'}`;
   if (p.destination) text += `｜${p.destination}`;
+  if (p.startDate) text += `\n📅 ${fmtDate(p.startDate)} ～ ${fmtDate(p.endDate || p.startDate)}`;
   text += '\n';
 
   checked.forEach(({ date, idx }) => {
-    const [y, m, d] = date.split('-').map(Number);
-    const wk = '日一二三四五六'[new Date(y, m - 1, d).getDay()];
-    const dayTrips = sortedDayTrips(date);   // 統一使用共用函式
-    text += `\n🗓 Day ${idx + 1}｜${m}月${d}日（週${wk}）\n`;
-    if (!dayTrips.length) {
+    const D = buildDayExport(date);
+    text += `\n🗓 Day ${idx + 1}｜${D.month}月${D.dayNum}日（週${D.weekday}）${D.dayName ? `｜${D.dayName}` : ''}\n`;
+    if (!D.dayTrips.length) {
       text += '（尚未安排行程）\n';
-    } else {
-      dayTrips.forEach(t => {
-        text += `📍 ${t.time ? t.time + ' ' : ''}${t.name}（${DUR[t.duration] || ''}）`;
-        if (t.note) text += `\n   └ ${t.note}`;
-        text += '\n';
-      });
-      const total = dayTrips.reduce((s, t) => s + (Number(t.duration) || 0), 0);
-      const hrs = Math.floor(total / 60), mins = total % 60;
-      text += `共 ${dayTrips.length} 個地點｜預計 ${hrs > 0 ? hrs + '小時' : ''}${mins > 0 ? mins + '分' : ''}\n`;
+      return;
     }
+    text += `🕘 ${D.startTime} ${D.lodgeAM ? `從「${D.lodgeAM.name}」` : ''}出發${D.amSeg ? `（${EXP_MODE[D.amSeg.mode]} ${D.amSeg.min}分）` : ''}\n`;
+    D.dayTrips.forEach((t, i) => {
+      const gap = D.gaps[i];
+      if (gap) text += `　　↓ ${EXP_MODE[gap.mode] || ''} ${gap.min}分\n`;
+      const eta = t.time ? `⏰${t.time}` : `約${D.etas[i]}`;
+      text += `📍 ${eta} ${t.name}${t.duration ? `（停留${_expDurTxt(t.duration)}）` : ''}\n`;
+      if (t.note) text += `　　└ ${t.note}\n`;
+    });
+    if (D.lodgePM) text += `🏨 返回「${D.lodgePM.name}」${D.pmSeg ? `（${EXP_MODE[D.pmSeg.mode]} ${D.pmSeg.min}分，約 ${D.backAt} 抵達）` : ''}\n`;
+    text += `—— 共 ${D.dayTrips.length} 個地點｜停留 ${_expHrMin(D.stayTotal)}｜移動 ${_expHrMin(D.transitTotal)}\n`;
   });
 
   navigator.clipboard.writeText(text).then(() => {
@@ -1819,33 +1852,39 @@ function exportMarkdown() {
   const fmtDate = d => { const [y,m,dd] = d.split('-'); return `${y}/${m}/${dd}`; };
   const dateRange = p.startDate ? `${fmtDate(p.startDate)} ～ ${fmtDate(p.endDate || p.startDate)}` : '';
 
-  let md = `# ✈️ ${p.name || '旅遊行程'}\n`;
+  let md = `# ✈️ ${p.name || '旅遊行程'}\n\n`;
   if (p.destination) md += `**目的地**：${p.destination}  \n`;
   if (dateRange)     md += `**日期**：${dateRange}  \n`;
+  const lodgings = getLodgings();
+  if (lodgings.length) {
+    md += `**住宿**：\n`;
+    lodgings.forEach(l => {
+      const name = l.mapUrl ? `[${l.name}](${l.mapUrl})` : l.name;
+      md += `- ${name}（${fmtDate(l.checkIn)} 入住 ～ ${fmtDate(l.checkOut)} 退房）\n`;
+    });
+  }
   md += '\n---\n';
 
+  // 表格儲存格不能含 | 與換行
+  const cell = s => String(s || '').replace(/\|/g, '｜').replace(/\r?\n/g, ' ');
+
   checked.forEach(({ date, idx }) => {
-    const [y, m, d] = date.split('-').map(Number);
-    const wk = '日一二三四五六'[new Date(y, m - 1, d).getDay()];
-    const dayTrips = sortedDayTrips(date);
-    const total = dayTrips.reduce((s, t) => s + (Number(t.duration) || 0), 0);
-    const hrs = Math.floor(total / 60), mins = total % 60;
-    const timeStr = total ? `（預計 ${hrs > 0 ? hrs + ' 小時' : ''}${mins > 0 ? mins + ' 分' : ''}）` : '';
+    const D = buildDayExport(date);
+    md += `\n## Day ${idx + 1}｜${D.month}月${D.dayNum}日（週${D.weekday}）${D.dayName ? `｜${D.dayName}` : ''}\n\n`;
 
-    md += `\n## Day ${idx + 1}　${m}月${d}日（週${wk}）${timeStr}\n\n`;
-
-    if (!dayTrips.length) {
+    if (!D.dayTrips.length) {
       md += '_尚未安排行程_\n';
-    } else {
-      dayTrips.forEach((t, i) => {
-        const time = t.time ? `**${t.time}**　` : '';
-        const dur  = DUR[t.duration] ? `（${DUR[t.duration]}）` : '';
-        const cat  = t.category ? ` \`${t.category}\`` : '';
-        const link = t.mapUrl ? ` [📍 地圖](${t.mapUrl})` : '';
-        md += `${i + 1}. ${time}${t.name}${dur}${cat}${link}\n`;
-        if (t.note) md += `   > ${t.note}\n`;
-      });
+      return;
     }
+    md += `${D.startTime} 出發${D.lodgeAM ? `（${cell(D.lodgeAM.name)}${D.amSeg ? `，${EXP_MODE[D.amSeg.mode]} ${D.amSeg.min}分` : ''}）` : ''} · ${D.dayTrips.length} 個地點 · 停留 ${_expHrMin(D.stayTotal)} · 移動 ${_expHrMin(D.transitTotal)}\n\n`;
+    md += `| 抵達 | 地點 | 類別 | 停留 | → 下一站 | 備註 |\n|---|---|---|---|---|---|\n`;
+    D.dayTrips.forEach((t, i) => {
+      const eta  = t.time ? `**${t.time}**` : `約${D.etas[i]}`;
+      const name = t.mapUrl ? `[${cell(t.name)}](${t.mapUrl})` : cell(t.name);
+      const next = D.gaps[i + 1];
+      md += `| ${eta} | ${name} | ${t.category || ''} | ${_expDurTxt(t.duration)} | ${next ? `${EXP_MODE[next.mode] || ''} ${next.min}分` : ''} | ${cell(t.note)} |\n`;
+    });
+    if (D.lodgePM) md += `\n🏨 返回 ${cell(D.lodgePM.name)}${D.pmSeg ? `（${EXP_MODE[D.pmSeg.mode]} ${D.pmSeg.min}分，約 ${D.backAt} 抵達）` : ''}\n`;
   });
 
   // 下載為 .md 檔
@@ -1868,6 +1907,9 @@ function showTab(t) {
     $('tb-' + n).classList.toggle('active', n === t);
   });
   at = t;
+  // FAB 只在地點清單頁顯示
+  const _fab = $('wish-fab');
+  if (_fab) _fab.classList.toggle('show', t === 'wish');
   // 離開願望清單時隱藏多選工具列並清除勾選
   if (t !== 'wish') {
     const bar = $('wish-multi-bar');
@@ -1912,10 +1954,14 @@ let _tripsSyncPid = null;
 let _tripsRenderTimer = null;
 let _isDragging = false;
 
+// Also normalizes legacy category value（2026-07 類別改名：餐廳 → 餐飲）
 function _mapToArray(map) {
   if (!map) return [];
-  if (Array.isArray(map)) return map;
-  return Object.values(map).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const arr = Array.isArray(map)
+    ? map
+    : Object.values(map).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  arr.forEach(item => { if (item && item.category === '餐廳') item.category = '餐飲'; });
+  return arr;
 }
 
 function startWishlistSync(pid) {
@@ -2695,13 +2741,16 @@ async function runBatchImport() {
     mapUrl: r.querySelector('.batch-url').value.trim(),
   })).filter(x => x.name);
   if (!items.length) { showToast('請輸入至少一個地點名稱'); return; }
-  // Skip names already in the wishlist (and repeats within this batch)
-  const _existingNames = new Set((db.wishlist[ap] || []).filter(w => w.name).map(w => normName(w.name)));
+  // 重複偵測（batch 沒座標,isSamePlace 退回名稱一致即算重複）
+  const _existingWishes = db.wishlist[ap] || [];
+  const _seenInBatch = [];
   let _skipped = 0;
   const uniqueItems = items.filter(it => {
-    const n = normName(it.name);
-    if (_existingNames.has(n)) { _skipped++; return false; }
-    _existingNames.add(n);
+    if (_existingWishes.some(w => isSamePlace(w, it)) || _seenInBatch.some(w => isSamePlace(w, it))) {
+      _skipped++;
+      return false;
+    }
+    _seenInBatch.push(it);
     return true;
   });
   if (!uniqueItems.length) { showToast('這些地點都已在清單中，未重複匯入'); return; }
@@ -2864,6 +2913,38 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
+// 相同地點判定:名稱一致（normName） + 座標距離 <100m。任一方無座標則名稱一致即算重複。
+function isSamePlace(a, b) {
+  if (!a || !b || !a.name || !b.name) return false;
+  if (normName(a.name) !== normName(b.name)) return false;
+  const la = a.lat, lna = a.lng, lb = b.lat, lnb = b.lng;
+  if (la == null || lna == null || lb == null || lnb == null) return true;
+  return haversineKm(Number(la), Number(lna), Number(lb), Number(lnb)) < 0.1;
+}
+
+// nearest-neighbor 試算:第一站固定,後續每次選最近的下一站,回傳總移動分鐘
+function computeOptimizedTransitTotal(dayTrips, transit) {
+  if (dayTrips.length < 2) return 0;
+  const remaining = dayTrips.slice(1);
+  const order = [dayTrips[0]];
+  while (remaining.length) {
+    const last = order[order.length - 1];
+    let bestIdx = 0, bestMin = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const info = transitInfo(last, remaining[i], transit);
+      const min = info ? info.min : 0;
+      if (min < bestMin) { bestMin = min; bestIdx = i; }
+    }
+    order.push(remaining.splice(bestIdx, 1)[0]);
+  }
+  let total = 0;
+  for (let i = 1; i < order.length; i++) {
+    const info = transitInfo(order[i-1], order[i], transit);
+    if (info) total += info.min;
+  }
+  return total;
+}
+
 function tripCoords(t) {
   const w = t.wishId ? (db.wishlist[ap] || []).find(x => x.id === t.wishId) : null;
   const lat = t.lat ?? (w ? w.lat : null), lng = t.lng ?? (w ? w.lng : null);
@@ -2962,24 +3043,78 @@ function transitInfo(a, b, overrides) {
   const ca = tripCoords(a), cb = tripCoords(b);
   if (!ca || !cb) return null;
   const km = haversineKm(ca.lat, ca.lng, cb.lat, cb.lng);
-  if (km < 1.5) return { min: Math.max(1, Math.round(km / 4.5 * 60)), mode: 'walk', manual: false };
-  return { min: Math.round(km / 20 * 60 + 10), mode: 'transit', manual: false };
+  // 使用者可覆寫 mode（walk / transit / car），未覆寫就依距離自動選 walk 或 transit
+  const autoMode = km < 1.5 ? 'walk' : 'transit';
+  const mode = (ov && ov.mode) ? ov.mode : autoMode;
+  const min = mode === 'walk' ? Math.max(1, Math.round(km / 4.5 * 60))
+            : mode === 'car'  ? Math.max(1, Math.round(km / 30 * 60) + 3)
+            :                   Math.round(km / 20 * 60 + 10);
+  return { min, mode, manual: false };
 }
 
 function transitRowHtml(a, b, overrides) {
   const info = transitInfo(a, b, overrides);
   if (!info) return '';
-  const icon = info.mode === 'walk' ? IC.walk : IC.train;
-  const label = `${icon} ${info.min}分`;
-  return `<div class="transit-row" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}" title="點擊查看 Google Maps 路線">${label}<button class="tr-edit" data-tr-edit="${a.id}_${b.id}" title="自訂移動時間"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button></div>`;
+  const icon = info.mode === 'walk' ? IC.walk : info.mode === 'car' ? IC.car : IC.train;
+  const chev = '<svg class="tr-chev" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const key = `${a.id}_${b.id}`;
+  return `<div class="transit-row" data-from="${a.id}" data-to="${b.id}" data-min="${info.min}" data-mode="${info.mode}"><span class="tr-mode" data-tr-mode="${key}" title="選擇交通方式">${icon}${chev}</span><span class="tr-label" title="開啟 Google Maps 路線">${info.min}分</span><button class="tr-edit" data-tr-edit="${key}" title="自訂移動時間"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button></div>`;
 }
 
 function openTransitDir(fromId, toId, mode) {
   const a = (db.trips[ap] || []).find(x => x.id === fromId);
   const b = (db.trips[ap] || []).find(x => x.id === toId);
   if (!a || !b) return;
-  const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(extractWaypoint(a))}&destination=${encodeURIComponent(extractWaypoint(b))}&travelmode=${mode === 'walk' ? 'walking' : 'transit'}`;
+  const travel = mode === 'walk' ? 'walking' : mode === 'car' ? 'driving' : 'transit';
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(extractWaypoint(a))}&destination=${encodeURIComponent(extractWaypoint(b))}&travelmode=${travel}`;
   window.open(url, '_blank');
+}
+
+// 交通方式下拉:點左側 icon 打開;選擇後存到 transit/{key}.mode,重繪時間軸
+function openTransitModeMenu(key, anchor) {
+  closeTransitModeMenu();
+  const opts = [
+    { mode: 'walk',    label: '步行',     icon: IC.walk },
+    { mode: 'transit', label: '大眾運輸', icon: IC.train },
+    { mode: 'car',     label: '開車',     icon: IC.car  },
+  ];
+  const menu = document.createElement('div');
+  menu.id = 'transit-mode-menu';
+  menu.innerHTML = opts.map(o =>
+    `<div class="tmm-item" data-mode="${o.mode}">${o.icon}<span>${o.label}</span></div>`
+  ).join('');
+  const rect = anchor.getBoundingClientRect();
+  Object.assign(menu.style, {
+    position: 'fixed',
+    top: `${rect.bottom + 2}px`,
+    left: `${rect.left}px`,
+    zIndex: '1000',
+  });
+  document.body.appendChild(menu);
+  menu.querySelectorAll('.tmm-item').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await setTransitMode(key, item.dataset.mode);
+      closeTransitModeMenu();
+    });
+  });
+  setTimeout(() => document.addEventListener('click', closeTransitModeMenu, { once: true }), 0);
+  window._transitModeMenu = menu;
+}
+function closeTransitModeMenu() {
+  if (window._transitModeMenu) {
+    window._transitModeMenu.remove();
+    window._transitModeMenu = null;
+  }
+}
+async function setTransitMode(key, mode) {
+  const p = db.projects.find(x => x.id === ap);
+  if (!p) return;
+  if (!p.transit) p.transit = {};
+  if (!p.transit[key]) p.transit[key] = {};
+  p.transit[key].mode = mode;
+  await window.projMerge(ap, `transit/${key}`, { mode });
+  renderTimeline();
 }
 
 function editTransit(key, btn) {
@@ -3025,61 +3160,6 @@ async function toggleVisited(id, btn) {
   const vp = $('visit-progress');
   if (vp) vp.textContent = `${dayTrips.filter(x => x.visited).length}/${dayTrips.length}`;
   await window.projMerge(ap, `trips/${t.id}`, { visited: !!t.visited });
-}
-
-// =============================================================
-//  每日回顧評分（score 存於 trip 節點，與收藏愛心的 rating 欄位隔離）
-// =============================================================
-let reflectPending = {}; // 暫存本次修改，按「完成」時一次寫入
-
-function openReflect(dateStr, dayIdx) {
-  const visited = sortedDayTrips(dateStr).filter(t => t.visited);
-  if (!visited.length) { showToast('這天還沒有打卡的地點'); return; }
-  reflectPending = {};
-  const [, m, dd] = dateStr.split('-').map(Number);
-  $('reflect-title').textContent = `Day ${dayIdx + 1} 回顧 — ${m}/${dd}`;
-  $('reflect-list').innerHTML = visited.map(t => `
-    <div class="reflect-row">
-      <span class="reflect-name">${esc(t.name)}</span>
-      <span class="reflect-stars">${[1, 2, 3, 4, 5].map(s => `<button class="rstar${(t.score || 0) >= s ? ' on' : ''}" data-rid="${t.id}" data-s="${s}">★</button>`).join('')}</span>
-    </div>`).join('');
-  const unvisited = sortedDayTrips(dateStr).length - visited.length;
-  $('reflect-foot').textContent = unvisited > 0 ? `未走訪的 ${unvisited} 個地點不列入評分` : '';
-  $('reflect-list').querySelectorAll('.rstar').forEach(b => b.addEventListener('click', () => {
-    const rid = b.dataset.rid, s = Number(b.dataset.s);
-    reflectPending[rid] = s;
-    $('reflect-list').querySelectorAll(`.rstar[data-rid="${rid}"]`).forEach(x => x.classList.toggle('on', Number(x.dataset.s) <= s));
-    b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
-  }));
-  $('mc-reflect').onclick = () => cm('m-reflect');
-  $('reflect-done').onclick = () => saveReflect(dateStr);
-  om('m-reflect');
-}
-
-async function saveReflect(dateStr) {
-  const ids = Object.keys(reflectPending);
-  ids.forEach(id => {
-    const t = (db.trips[ap] || []).find(x => x.id === id);
-    if (t) t.score = reflectPending[id];
-  });
-  cm('m-reflect');
-  if (ids.length) {
-    await Promise.all(ids.map(id => window.projMerge(ap, `trips/${id}`, { score: reflectPending[id] })));
-    showToast('✅ 已記錄回顧評分');
-  }
-  renderTimeline();
-  maybeOfferCatchup(dateStr);
-}
-
-// 完成當天回顧後，詢問是否補評先前天數（先評當天的，再問要不要補評）
-async function maybeOfferCatchup(dateStr) {
-  const days = getTripDays();
-  const backlog = days.filter(d => d < dateStr && sortedDayTrips(d).some(t => t.visited && !t.score));
-  if (!backlog.length) return;
-  const total = backlog.reduce((s, d) => s + sortedDayTrips(d).filter(t => t.visited && !t.score).length, 0);
-  const ok = await showConfirm(`先前還有 ${total} 個走訪過的地點未評分，要現在補評嗎？`);
-  if (!ok) return;
-  openReflect(backlog[0], days.indexOf(backlog[0]));
 }
 
 // =============================================================
@@ -3131,28 +3211,6 @@ async function fetchWeather() {
 }
 
 // =============================================================
-//  旅程回顧分享
-// =============================================================
-async function shareRecap() {
-  const p = db.projects.find(x => x.id === ap);
-  if (!p) return;
-  const allTrips = db.trips[ap] || [];
-  const visitedCnt = allTrips.filter(t => t.visited).length;
-  const favs = (db.wishlist[ap] || []).filter(w => (w.rating || 0) >= 4).map(w => w.name);
-  const highlights = allTrips.filter(t => t.score).sort((a, b) => b.score - a.score).slice(0, 3);
-  const lines = [`🏁 ${p.name} 旅程回顧`, `${getTripDays().length} 天 · ${allTrips.length} 個行程地點${visitedCnt ? `，走訪 ${visitedCnt} 個` : ''}`];
-  if (highlights.length) lines.push(`⭐ 亮點：${highlights.map(t => `${t.name} ${t.score}★`).join('、')}`);
-  if (favs.length) lines.push(`❤️ 最愛：${favs.join('、')}`);
-  const text = lines.join('\n');
-  if (navigator.share) {
-    try { await navigator.share({ text }); } catch (e) { /* 使用者取消分享 */ }
-  } else if (navigator.clipboard) {
-    await navigator.clipboard.writeText(text);
-    showToast('✅ 已複製回顧文字');
-  }
-}
-
-// =============================================================
 //  分享今日行程（Web Share API，不支援時複製到剪貼簿）
 // =============================================================
 async function shareDay() {
@@ -3191,6 +3249,72 @@ function showConfirm(msg) {
 }
 
 // =============================================================
+//  觸控手勢（手機邏輯）：時間軸左右滑切換天數、地點卡左滑刪除
+// =============================================================
+function initGestures() {
+  // ── 時間軸：水平滑動切換前/後一天（僅單日檢視；排除水平捲動區與互動元件）──
+  const tl = $('pg-timeline');
+  let tX = 0, tY = 0, tT = 0, tOk = false;
+  tl.addEventListener('touchstart', e => {
+    tOk = !e.target.closest('#mini-date-bar, input, textarea, select, button, a, .transit-row');
+    if (!tOk) return;
+    const t = e.touches[0];
+    tX = t.clientX; tY = t.clientY; tT = Date.now();
+  }, { passive: true });
+  tl.addEventListener('touchend', e => {
+    if (!tOk || timelineView !== 'day' || document.querySelector('.mwrap.open')) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - tX, dy = t.clientY - tY;
+    // 60px 門檻＋水平位移需明顯大於垂直（避免誤觸捲動）＋600ms 內完成
+    if (Date.now() - tT > 600 || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+    const days = getTripDays();
+    if (dx < 0 && currentDayIdx < days.length - 1) { currentDayIdx++; renderTimeline(); }
+    else if (dx > 0 && currentDayIdx > 0)          { currentDayIdx--; renderTimeline(); }
+  }, { passive: true });
+
+  // ── 地點卡：左滑超過 100px 即刪除（delWish 自帶復原 toast）──
+  const pw = $('pg-wish');
+  let wCard = null, wX = 0, wY = 0, wDx = 0, wLock = null;
+  pw.addEventListener('touchstart', e => {
+    wCard = null; wLock = null; wDx = 0;
+    if (e.target.closest('input, button, a, select, textarea, .fav-heart')) return;
+    const card = e.target.closest('.wish-card');
+    if (!card || !card.dataset.wishId) return;
+    wCard = card;
+    const t = e.touches[0];
+    wX = t.clientX; wY = t.clientY;
+  }, { passive: true });
+  pw.addEventListener('touchmove', e => {
+    if (!wCard) return;
+    const t = e.touches[0];
+    const dx = t.clientX - wX, dy = t.clientY - wY;
+    // 前 10px 判定滑動軸向，鎖定後才跟手位移，避免與垂直捲動打架
+    if (wLock === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10))
+      wLock = Math.abs(dx) > Math.abs(dy) * 1.5 ? 'x' : 'y';
+    if (wLock !== 'x') return;
+    wDx = Math.min(0, dx);   // 只允許往左
+    wCard.style.transition = 'none';
+    wCard.style.transform = `translateX(${wDx}px)`;
+    wCard.style.opacity = String(Math.max(.35, 1 + wDx / 300));
+  }, { passive: true });
+  pw.addEventListener('touchend', () => {
+    if (!wCard) return;
+    const card = wCard, dx = wDx, lock = wLock;
+    wCard = null;
+    card.style.transition = 'transform .18s,opacity .18s';
+    if (lock === 'x' && dx < -100) {
+      card.style.transform = 'translateX(-110%)';
+      card.style.opacity = '0';
+      const id = card.dataset.wishId;
+      setTimeout(() => delWish(id), 160);   // delWish 會重繪清單並顯示復原 toast
+    } else {
+      card.style.transform = '';
+      card.style.opacity = '';
+    }
+  }, { passive: true });
+}
+
+// =============================================================
 //  DOMContentLoaded — 靜態事件綁定
 // =============================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -3207,6 +3331,8 @@ document.addEventListener('DOMContentLoaded', () => {
   on('tb-home',     'click', () => showTab('home'));
   on('tb-wish',     'click', () => showTab('wish'));
   on('tb-timeline', 'click', () => showTab('timeline'));
+  on('wish-fab',    'click', () => openWish());
+  initGestures();
 
   // Banner
   on('mb-add-btn', 'click', quickAddWish);
