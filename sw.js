@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v30'; // lodging UI + transit label unification
+const CACHE_NAME = 'trip-planner-v41'; // mobile-first redesign: bottom nav, FAB, gestures, bottom sheets
 const ASSETS = [
   './',
   './index.html',
