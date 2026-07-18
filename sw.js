@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v44'; // tutorial redesign: first-run task, chapters, hints
+const CACHE_NAME = 'trip-planner-v45'; // tour fixes: spotlight settle, hint/tour collision, PWA first-run flow
 const ASSETS = [
   './',
   './index.html',
