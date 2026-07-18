@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#2d6a4f">
 <link rel="apple-touch-icon" href="icons/icon128.png">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*,*::before,*::after{box-sizcing:border-box;margin:0;padding:0}
 :root{
   --bg:#f7f6f2;--surface:#fff;--surface2:#f0efe9;
   --border:#e2e0d8;--border2:#cccabd;
@@ -489,6 +489,10 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
 .transfer-opt input[type="radio"]{accent-color:var(--accent)}
 #tour-overlay{position:fixed;inset:0;z-index:9000;pointer-events:none;transition:opacity .25s;display:none}
 #tour-overlay.active{pointer-events:all;display:block}
+/* passthrough：互動步驟（如建立專案）不攔截點擊、不遮暗畫面，只保留氣泡 */
+#tour-overlay.active.passthrough{pointer-events:none}
+#tour-overlay.active.passthrough #tour-bubble{pointer-events:auto}
+#tour-overlay.active.passthrough #tour-spotlight{display:none!important}
 #tour-mask{position:absolute;inset:0;background:rgba(0,0,0,0.58)}
 #tour-spotlight{position:absolute;border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,0.58);transition:all .28s cubic-bezier(.4,0,.2,1);pointer-events:none}
 #tour-bubble{position:absolute;background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--rl);padding:14px 16px;width:min(280px,90vw);max-height:calc(100vh - 20px);overflow-y:auto;z-index:9001;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:all .28s cubic-bezier(.4,0,.2,1)}
