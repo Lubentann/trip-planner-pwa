@@ -160,6 +160,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* Route detour hint */
 .route-hint{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--text2);background:var(--accent-l);border:1px solid var(--accent-m);border-radius:var(--r);padding:6px 10px;margin:6px 0 2px}
 .route-hint button{font-size:11px;padding:3px 9px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;white-space:nowrap;flex-shrink:0}
+.ctx-hint{position:fixed;z-index:80;background:var(--text);color:var(--surface);font-size:12px;line-height:1.5;padding:8px 12px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:260px;display:flex;align-items:center;gap:8px}
+.ctx-hint-ok{background:none;border:1px solid var(--surface);color:var(--surface);border-radius:5px;font-size:11px;padding:2px 8px;cursor:pointer;flex-shrink:0;font-family:inherit}
 .route-hint>span{display:inline-flex;align-items:center;gap:5px}
 /* 點擊視覺回饋：可點元件按下時輕微縮小 */
 .ib,.add-btn,.day-nav,.sched-btn,.filter-chip,.vt-btn,.mini-day-btn,.day-start-chip,.route-hint button,.bar-btn,.exp-btn,.cl-filter-btn,.cl-add-btn,.mem-badge-btn,.hstat-click{transition:transform .08s ease,background .14s,color .14s}
@@ -779,6 +781,13 @@ input[type="date"]::-webkit-calendar-picker-indicator{position:absolute;top:0;le
   </div>
 </div>
 
+<!-- Modal: 教學導覽章節選單 -->
+<div class="mwrap" id="m-tour-menu">
+  <div class="modal" style="max-width:340px">
+    <div class="mtitle"><span>教學導覽</span><button class="mclose" id="mc-tour-menu">✕</button></div>
+    <div id="tour-menu-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+</div>
 
 <!-- Modal: 批次匯入地點 -->
 <div class="mwrap" id="m-batch">
