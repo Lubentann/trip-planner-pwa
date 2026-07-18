@@ -210,6 +210,29 @@ function esc(s) {
 }
 function $(id)       { return document.getElementById(id); }
 function on(id, ev, fn) { const el = $(id); if (el) el.addEventListener(ev, fn); }
+
+// One-shot contextual hint bubble. Shows once per key (persisted), max one per session.
+let _hintShownThisSession = false;
+function showHintOnce(key, anchorSel, text) {
+  if (_hintShownThisSession) return;
+  const anchor = document.querySelector(anchorSel);
+  if (!anchor) return;
+  const storeKey = 'hint:' + key;
+  if (!localStorage.getItem(storeKey)) {
+    localStorage.setItem(storeKey, '1');
+    _hintShownThisSession = true;
+    const b = document.createElement('div');
+    b.className = 'ctx-hint';
+    b.innerHTML = `💡 ${text} <button class="ctx-hint-ok">知道了</button>`;
+    document.body.appendChild(b);
+    const r = anchor.getBoundingClientRect();
+    b.style.top = Math.max(8, r.top - b.offsetHeight - 8) + 'px';
+    b.style.left = Math.min(Math.max(8, r.left), window.innerWidth - b.offsetWidth - 8) + 'px';
+    const dismiss = () => b.remove();
+    b.querySelector('.ctx-hint-ok').addEventListener('click', dismiss);
+    setTimeout(dismiss, 12000);
+  }
+}
 // 地圖連結：無 mapUrl 的純名稱項目改用 Google Maps 名稱搜尋，讓「地圖」按鈕永遠可用
 function itemMapUrl(mapUrl, name) {
   return mapUrl || (name ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}` : '');
@@ -356,11 +379,6 @@ async function loadDB() {
 
   // Opportunistic cleanup of expired invite codes (fire-and-forget)
   cleanupExpiredInvites();
-
-  // Auto-launch tour for first-time users
-  if (!localStorage.getItem('tourDone') && db.projects.length > 0) {
-    setTimeout(() => startTour(), 600);
-  }
 
   if (!db.projects.length && !r.onboardDone) {
     setTimeout(() => om('m-onboard'), 400);
@@ -919,7 +937,7 @@ function renderHome() {
   if (memBtn) memBtn.addEventListener('click', openMembersModal);
   const clToggle = el.querySelector('#cl-hdr-toggle');
   if (clToggle) clToggle.addEventListener('click', () => { window._clExpanded = !window._clExpanded; renderHome(); });
-  on('btn-tour-replay', 'click', () => startTour());
+  on('btn-tour-replay', 'click', () => openTourMenu());
   clLoad(ap, el.querySelector('#cl-body'));
 }
 
@@ -1054,6 +1072,11 @@ function renderWish() {
   window._checkedWishIds = null;
 
   bindWishControls(el);
+
+  // Just-in-time contextual hint
+  if (wishes.length >= 8) {
+    showHintOnce('wish-filter', '.filter-chip', '地點變多了：上方可以按類別篩選，也能搜尋名稱');
+  }
 }
 
 function bindWishControls(el) {
@@ -1470,6 +1493,17 @@ function renderTimeline() {
   });
 
   if ($('trip-list')) initDragSort($('trip-list'), days[currentDayIdx]);
+
+  // Just-in-time contextual hints
+  if (document.querySelector('.transit-row')) {
+    showHintOnce('transit-edit', '.transit-row', '移動時間可以修改：點分鐘數字，輸入實際查到的時間');
+  }
+  if (getTripDays().length >= 2 && timelineView === 'day') {
+    showHintOnce('swipe-days', '#mini-date-bar', '左右滑動可以切換前後一天');
+  }
+  if (sortedDayTrips(days[currentDayIdx]).length >= 3) {
+    showHintOnce('nav-export', '#btn-nav-route', '行程排好了？「今日路線導航」照順序帶路，「匯出行程」可以分享給旅伴');
+  }
 }
 
 // active 日期不在可視範圍時，才 scroll 讓它剛好進入邊緣
@@ -1929,7 +1963,14 @@ function showTab(t) {
   closeDD();
 }
 
-function toggleDD() { const d = $('dd'), b = $('proj-btn'); const o = d.classList.toggle('open'); b.classList.toggle('open', o); }
+function toggleDD() {
+  const d = $('dd'), b = $('proj-btn');
+  const o = d.classList.toggle('open');
+  b.classList.toggle('open', o);
+  if (o && db.projects.length >= 1) {
+    showHintOnce('invite', '#dd-share-proj', '可以邀請旅伴一起編輯這個專案——點「邀請夥伴」產生邀請碼');
+  }
+}
 function closeDD()  { $('dd').classList.remove('open'); $('proj-btn').classList.remove('open'); }
 function selProj(id) {
   ap = id; currentDayIdx = 0;
@@ -3600,7 +3641,7 @@ const PWA_TOUR_STEPS = [
     target: '#pg-home', tabSwitch: 'home',
     descHtml: '<p style="margin:0">首頁顯示專案的出發日期、天數概覽，以及地點和行程的統計摘要。</p>' },
   { title: '專案切換與管理',
-    target: '.dd-toggle', tabSwitch: 'home',
+    target: '#proj-btn', tabSwitch: 'home',
     descHtml: '<p style="margin:0 0 8px">點這裡切換不同旅遊專案。</p><p style="margin:0">底部可以新增旅遊、邀請夥伴協作、或輸入邀請碼加入他人的專案。</p>' },
   { title: '準備清單：新增自訂項目',
     target: '.cl-add-row', tabSwitch: 'home',
@@ -3609,23 +3650,23 @@ const PWA_TOUR_STEPS = [
     target: '.cl-link', tabSwitch: 'home',
     descHtml: '<p style="margin:0">部分項目旁有「前往 ↗」按鈕，點擊即可直接前往購買網卡、票券等旅行必備品。</p>' },
   { title: '地點清單：收藏感興趣的地點',
-    target: '#tab-wish', tabSwitch: 'wish',
+    target: '#tb-wish', tabSwitch: 'wish',
     descHtml: '<p style="margin:0 0 8px">這裡集中管理所有想去的地方。可以按類別篩選、搜尋，也能排序找出最想去的。</p><p style="margin:0">準備排行程時，勾選地點再點「加入行程」。</p>' },
   { title: '地點卡片操作',
     target: '.wish-card', tabSwitch: 'wish',
     descHtml: `<p style="margin:0 0 8px">每個地點卡片上有三個快速操作：</p><div style="display:grid;grid-template-columns:24px 1fr;gap:2px 8px;margin-top:8px;align-items:center"><span style="color:var(--coral);font-size:15px;display:flex;justify-content:center">♥</span><span>收藏 — 標記最想去的地點</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span>編輯 — 修改名稱、類別、備註</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span><span>刪除 — 移除這個地點</span></div>` },
   { title: '行程安排：每日時間軸',
-    target: '#tab-timeline', tabSwitch: 'timeline',
+    target: '#tb-timeline', tabSwitch: 'timeline',
     descHtml: '<p style="margin:0 0 8px">從地點清單加入地點後，在這裡安排每天的順序與停留時長。</p><p style="margin:0">拖曳卡片可重新排序，接下來幾步介紹時間軸的重點功能。</p>' },
   { title: '切換日期',
     target: '#date-label-main', tabSwitch: 'timeline',
-    descHtml: '<p style="margin:0">點日期兩旁的 ‹ › 可逐日切換，上方迷你日期列可直接跳到任一天；右側「全覽」則一次綜覽整趟旅程。</p>' },
+    descHtml: '<p style="margin:0">上方迷你日期列可直接跳到任一天，也可以在行程區左右滑動切換前後一天；右側「總覽」則一次綜覽整趟旅程。</p>' },
   { title: '出發時間與預計抵達',
     target: '#day-start-btn', tabSwitch: 'timeline',
     descHtml: '<p style="margin:0">點「🕘 出發」設定當天幾點出門，每張卡片會自動推算「⏱ 預計抵達」時間；有自訂時間的地點會成為錨點，後面的時間跟著重算。</p>' },
   { title: '移動時間與順路排序',
     target: '.transit-row', tabSwitch: 'timeline',
-    descHtml: '<p style="margin:0">相鄰地點會自動估算移動時間，點旁邊的鉛筆可改成實際查到的分鐘數。當移動時間明顯偏多，摘要下方會出現「一鍵順路排序」幫你排出較順的路線。</p>' },
+    descHtml: '<p style="margin:0">相鄰地點會自動估算移動時間：點分鐘數字可改成實際查到的時間，點紙飛機圖示會開啟 Google Maps 路線。移動時間明顯偏多時，上方會出現「一鍵順路排序」。</p>' },
   { title: '行程卡片操作',
     target: '.trip-card', tabSwitch: 'timeline',
     descHtml: `<p style="margin:0 0 8px">每張行程卡片提供四個操作：</p><div style="display:grid;grid-template-columns:24px 1fr;gap:2px 8px;margin-top:8px;align-items:center"><span style="display:flex;justify-content:center">${IC.grip}</span><span>拖曳 — 長按後上下移動可排序</span><span style="color:var(--coral);font-size:15px;display:flex;justify-content:center">♥</span><span>收藏 — 同步更新地點清單的收藏</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span><span>編輯 — 調整時間與停留時長</span><span style="display:flex;justify-content:center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span><span>刪除 — 從今日行程移除</span></div>` },
@@ -3633,16 +3674,61 @@ const PWA_TOUR_STEPS = [
     target: '#btn-nav-route', tabSwitch: 'timeline',
     descHtml: '<p style="margin:0">點擊可開啟 Google Maps 導航，依照行程順序規劃最佳路線。</p>' },
   { title: '導覽完成！開始規劃旅程',
-    descHtml: '<p style="margin:0 0 8px">你已經了解所有核心功能。</p><p style="margin:0">想再看一次？點擊個人選單中的「教學導覽」即可重新播放。</p>',
+    descHtml: '<p style="margin:0 0 8px">你已經了解所有核心功能。</p><p style="margin:0">想再看一次？首頁最下方的「重新播放教學導覽」隨時可以打開。</p>',
     isLast: true },
 ];
 
-let tourActive = false, tourStep = 0;
+// New chapter: collaborating with trip-mates (not part of the original tour)
+const COLLAB_STEPS = [
+  { target: null, title: '一起規劃，即時同步',
+    descHtml: '<p style="margin:0 0 8px">專案可以邀請旅伴共同編輯：任何人加地點、改行程，所有人的畫面即時更新。</p><p style="margin:0">邀請入口在專案選單裡。</p>',
+    onEnter: () => showTab('home') },
+  { target: 'btn-gen-invite', fallback: null, title: '產生邀請碼',
+    descHtml: '<p style="margin:0 0 8px">點「產生新代碼」取得 6 位邀請碼，傳給旅伴即可。</p><p style="margin:0">代碼 24 小時內有效，過期再產生一次就好。</p>',
+    onEnter: () => om('m-invite') },
+  { target: null, title: '旅伴如何加入',
+    descHtml: '<p style="margin:0 0 8px">旅伴在自己的裝置登入後，於專案選單選「輸入邀請碼」，貼上代碼即可加入專案。</p><p style="margin:0">每個帳號最多同時參與 3 個專案。</p>',
+    onEnter: () => { cm('m-invite'); }, isLast: true },
+];
 
-function startTour() {
+// New chapter: mobile gestures (PWA-only)
+const MOBILE_STEPS = [
+  { target: '#wish-fab', tabSwitch: 'wish', title: '右下角＋：新增地點',
+    descHtml: '<p style="margin:0">在地點清單頁，右下角的圓形按鈕可以隨時手動新增地點。</p>' },
+  { target: '.wish-card', tabSwitch: 'wish', title: '左滑刪除',
+    descHtml: '<p style="margin:0">地點卡片向左滑到底即可刪除；刪錯了沒關係，底部會出現「復原」。</p>' },
+  { target: '#mini-date-bar', tabSwitch: 'timeline', title: '滑動切換天數',
+    descHtml: '<p style="margin:0">行程頁左右滑動可切換前後一天，上方日期列可直接跳到任一天。</p>', isLast: true },
+];
+
+// Tour chapters: menu lets users replay just the section they need (Phase A indices)
+const TOUR_CHAPTERS = [
+  { id: 'collect',   label: '📍 收藏地點',   steps: [PWA_TOUR_STEPS[5], PWA_TOUR_STEPS[6]] },
+  { id: 'plan',      label: '🗓 安排行程',   steps: [PWA_TOUR_STEPS[7], PWA_TOUR_STEPS[8], PWA_TOUR_STEPS[9], PWA_TOUR_STEPS[10], PWA_TOUR_STEPS[11], PWA_TOUR_STEPS[12]] },
+  { id: 'collab',    label: '👥 旅伴協作',   steps: COLLAB_STEPS },
+  { id: 'mobile',    label: '📱 手機操作',   steps: MOBILE_STEPS },
+  { id: 'checklist', label: '🧳 準備清單',   steps: [PWA_TOUR_STEPS[3], PWA_TOUR_STEPS[4]] },
+];
+
+let tourActive = false, tourStep = 0;
+let _activeTourSteps = PWA_TOUR_STEPS;
+
+function startTour(steps = PWA_TOUR_STEPS) {
+  _activeTourSteps = steps;
   tourActive = true;
   tourStep = 0;
   renderTourStep();
+}
+
+function openTourMenu() {
+  $('tour-menu-list').innerHTML = TOUR_CHAPTERS.map(c =>
+    `<button class="tour-chapter-btn" data-chapter="${c.id}" style="text-align:left;padding:12px 14px;font-size:13px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text);font-family:inherit">${c.label}</button>`).join('');
+  $('tour-menu-list').querySelectorAll('[data-chapter]').forEach(b => b.addEventListener('click', () => {
+    cm('m-tour-menu');
+    startTour(TOUR_CHAPTERS.find(c => c.id === b.dataset.chapter).steps);
+  }));
+  $('mc-tour-menu').onclick = () => cm('m-tour-menu');
+  om('m-tour-menu');
 }
 
 function endTour(completed = false) {
@@ -3651,6 +3737,7 @@ function endTour(completed = false) {
   if (overlay) overlay.classList.remove('active');
   const spotlight = document.getElementById('tour-spotlight');
   if (spotlight) spotlight.style.cssText = '';
+  cm('m-invite');
   if (completed) localStorage.setItem('tourDone', '1');
 }
 
@@ -3666,7 +3753,7 @@ function getTourTargetRect(selector) {
 }
 
 function renderTourStep() {
-  const step = PWA_TOUR_STEPS[tourStep];
+  const step = _activeTourSteps[tourStep];
   const overlay = document.getElementById('tour-overlay');
   const spotlight = document.getElementById('tour-spotlight');
   const bubble = document.getElementById('tour-bubble');
@@ -3674,16 +3761,17 @@ function renderTourStep() {
 
   // Tab auto-switch
   if (step.tabSwitch) showTab(step.tabSwitch);
+  if (step.onEnter) step.onEnter();
 
   overlay.classList.add('active');
 
   // Progress
   const progressEl = document.getElementById('tour-progress');
   if (progressEl) {
-    const pct = PWA_TOUR_STEPS.length > 1 ? (tourStep / (PWA_TOUR_STEPS.length - 1)) * 100 : 100;
+    const pct = _activeTourSteps.length > 1 ? (tourStep / (_activeTourSteps.length - 1)) * 100 : 100;
     progressEl.style.width = pct + '%';
   }
-  document.getElementById('tour-step-label').textContent = `步驟 ${tourStep + 1} / ${PWA_TOUR_STEPS.length}`;
+  document.getElementById('tour-step-label').textContent = `步驟 ${tourStep + 1} / ${_activeTourSteps.length}`;
   document.getElementById('tour-title').textContent = step.title;
   const descEl = document.getElementById('tour-desc');
   if (step.descHtml) { descEl.style.whiteSpace = ''; descEl.innerHTML = step.descHtml; }
@@ -3694,8 +3782,9 @@ function renderTourStep() {
   const skipBtn = document.getElementById('tour-skip');
   const nextBtn = document.getElementById('tour-next');
   if (prevBtn) prevBtn.style.display = tourStep > 0 ? '' : 'none';
-  if (skipBtn) skipBtn.style.display = step.isLast ? 'none' : '';
-  if (nextBtn) nextBtn.textContent = step.isLast ? '開始使用' : '下一步';
+  const _isLastStep = step.isLast || tourStep === _activeTourSteps.length - 1;
+  if (skipBtn) skipBtn.style.display = _isLastStep ? 'none' : '';
+  if (nextBtn) nextBtn.textContent = _isLastStep ? '開始使用' : '下一步';
 
   // Spotlight positioning
   requestAnimationFrame(() => {
@@ -3735,7 +3824,7 @@ function renderTourStep() {
 }
 
 function nextTourStep() {
-  if (tourStep < PWA_TOUR_STEPS.length - 1) { tourStep++; renderTourStep(); }
+  if (tourStep < _activeTourSteps.length - 1) { tourStep++; renderTourStep(); }
   else endTour(true);
 }
 function prevTourStep() {
