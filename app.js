@@ -214,7 +214,7 @@ function on(id, ev, fn) { const el = $(id); if (el) el.addEventListener(ev, fn);
 // One-shot contextual hint bubble. Shows once per key (persisted), max one per session.
 let _hintShownThisSession = false;
 function showHintOnce(key, anchorSel, text) {
-  if (_hintShownThisSession) return;
+  if (_hintShownThisSession || tourActive) return;   // 導覽進行中不出提示，避免畫面互疊
   const anchor = document.querySelector(anchorSel);
   if (!anchor) return;
   const storeKey = 'hint:' + key;
@@ -223,6 +223,7 @@ function showHintOnce(key, anchorSel, text) {
     _hintShownThisSession = true;
     const b = document.createElement('div');
     b.className = 'ctx-hint';
+    b.dataset.hintKey = key;
     b.innerHTML = `💡 ${text} <button class="ctx-hint-ok">知道了</button>`;
     document.body.appendChild(b);
     const r = anchor.getBoundingClientRect();
@@ -232,6 +233,13 @@ function showHintOnce(key, anchorSel, text) {
     b.querySelector('.ctx-hint-ok').addEventListener('click', dismiss);
     setTimeout(dismiss, 12000);
   }
+}
+// 導覽開始時收掉畫面上的情境提示；restore=true 時歸還 storage 鍵，之後仍有機會再顯示
+function dismissCtxHints(restore) {
+  document.querySelectorAll('.ctx-hint').forEach(b => {
+    if (restore && b.dataset.hintKey) localStorage.removeItem('hint:' + b.dataset.hintKey);
+    b.remove();
+  });
 }
 // 地圖連結：無 mapUrl 的純名稱項目改用 Google Maps 名稱搜尋，讓「地圖」按鈕永遠可用
 function itemMapUrl(mapUrl, name) {
@@ -380,10 +388,14 @@ async function loadDB() {
   // Opportunistic cleanup of expired invite codes (fire-and-forget)
   cleanupExpiredInvites();
 
-  if (!db.projects.length && !r.onboardDone) {
-    setTimeout(() => om('m-onboard'), 400);
+  if (!db.projects.length && !localStorage.getItem('tourDone')) {
+    // 全新使用者：跑首次任務流程（含建立專案），取代 m-onboard 靜態說明
+    setTimeout(() => startTour(PWA_FIRST_RUN_STEPS), 500);
   } else if (!db.projects.length) {
     $('first-run-tip').classList.add('show');
+  } else if (!localStorage.getItem('tourDone')) {
+    // 已有資料（例如電腦端先建好、或受邀加入）：不自動播，靠情境提示與章節手冊
+    localStorage.setItem('tourDone', '1');
   }
 
   const openCount = (r.openCount || 0) + 1;
@@ -2152,7 +2164,10 @@ async function saveProj() {
 async function applyProjSave(obj) {
   const isEdit = db.projects.some(x => x.id === obj.id);
   if (isEdit) { const i = db.projects.findIndex(x => x.id === obj.id); if (i >= 0) db.projects[i] = obj; }
-  else { db.projects.push(obj); ap = obj.id; chrome.storage.local.set({ activeProject: obj.id }); }
+  else {
+    db.projects.push(obj); ap = obj.id; chrome.storage.local.set({ activeProject: obj.id });
+    document.dispatchEvent(new CustomEvent('project-created'));   // first-run flow auto-advance
+  }
   await saveDB(); renderAll(); showTab('home'); cm('m-proj');
   updateFirstRunTip();
 }
@@ -3683,7 +3698,7 @@ const COLLAB_STEPS = [
   { target: null, title: '一起規劃，即時同步',
     descHtml: '<p style="margin:0 0 8px">專案可以邀請旅伴共同編輯：任何人加地點、改行程，所有人的畫面即時更新。</p><p style="margin:0">邀請入口在專案選單裡。</p>',
     onEnter: () => showTab('home') },
-  { target: 'btn-gen-invite', fallback: null, title: '產生邀請碼',
+  { target: '#btn-gen-invite', fallback: null, title: '產生邀請碼',
     descHtml: '<p style="margin:0 0 8px">點「產生新代碼」取得 6 位邀請碼，傳給旅伴即可。</p><p style="margin:0">代碼 24 小時內有效，過期再產生一次就好。</p>',
     onEnter: () => om('m-invite') },
   { target: null, title: '旅伴如何加入',
@@ -3702,6 +3717,36 @@ const MOBILE_STEPS = [
 ];
 
 // Tour chapters: menu lets users replay just the section they need (Phase A indices)
+// First-run task flow（手機版）：建立專案 → 收集地點 → 排行程。取代自動播放的完整導覽。
+const PWA_FIRST_RUN_STEPS = [
+  {
+    title: '歡迎！先建立你的旅遊專案',
+    tabSwitch: 'home',
+    descHtml: '<p style="margin:0 0 8px">一個專案就是一趟旅程。先建立專案，之後收藏的地點、每日行程都會存在裡面，也能邀請旅伴一起編輯。</p>',
+    actionHtml: '<button id="tour-create-proj" style="margin-top:8px;width:100%;font-size:12px;padding:9px 12px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600">＋ 建立旅遊專案</button>',
+    waiting: '完成建立後自動繼續…',
+    advanceEvent: 'project-created',
+    passthrough: true,       // 使用者要填新增專案表單，遮罩需穿透
+    forcePos: 'top-right',   // 氣泡靠上，避免蓋住底部滑出的表單
+  },
+  {
+    target: '#wish-fab', tabSwitch: 'wish',
+    title: '收集想去的地點',
+    descHtml: '<p style="margin:0 0 8px">右下角的＋可以手動新增地點；「新增多地點」能一次貼上多個名稱。</p><p style="margin:0">在電腦用 Chrome 擴充功能逛 Google Maps，按一下就能收藏，手機這裡即時同步。</p>',
+  },
+  {
+    target: null, tabSwitch: 'timeline',
+    title: '排入每日行程',
+    descHtml: '<p style="margin:0">在地點清單勾選地點、按「加入行程」選日期，然後回到這裡調整每天的順序、停留與交通時間。</p>',
+  },
+  {
+    title: '準備好了！',
+    tabSwitch: 'home',
+    descHtml: '<p style="margin:0 0 8px">首頁的「三步驟開始規劃」會陪你完成接下來的每一步。</p><p style="margin:0">想深入了解（旅伴協作、匯出、手機手勢），首頁最下方「重新播放教學導覽」有分章教學。</p>',
+    isLast: true, hideSkip: true,
+  },
+];
+
 const TOUR_CHAPTERS = [
   { id: 'collect',   label: '📍 收藏地點',   steps: [PWA_TOUR_STEPS[5], PWA_TOUR_STEPS[6]] },
   { id: 'plan',      label: '🗓 安排行程',   steps: [PWA_TOUR_STEPS[7], PWA_TOUR_STEPS[8], PWA_TOUR_STEPS[9], PWA_TOUR_STEPS[10], PWA_TOUR_STEPS[11], PWA_TOUR_STEPS[12]] },
@@ -3714,6 +3759,7 @@ let tourActive = false, tourStep = 0;
 let _activeTourSteps = PWA_TOUR_STEPS;
 
 function startTour(steps = PWA_TOUR_STEPS) {
+  dismissCtxHints(true);   // 收掉情境提示，避免與導覽互疊
   _activeTourSteps = steps;
   tourActive = true;
   tourStep = 0;
@@ -3721,6 +3767,7 @@ function startTour(steps = PWA_TOUR_STEPS) {
 }
 
 function openTourMenu() {
+  dismissCtxHints(true);
   $('tour-menu-list').innerHTML = TOUR_CHAPTERS.map(c =>
     `<button class="tour-chapter-btn" data-chapter="${c.id}" style="text-align:left;padding:12px 14px;font-size:13px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text);font-family:inherit">${c.label}</button>`).join('');
   $('tour-menu-list').querySelectorAll('[data-chapter]').forEach(b => b.addEventListener('click', () => {
@@ -3734,7 +3781,7 @@ function openTourMenu() {
 function endTour(completed = false) {
   tourActive = false;
   const overlay = document.getElementById('tour-overlay');
-  if (overlay) overlay.classList.remove('active');
+  if (overlay) overlay.classList.remove('active', 'passthrough');
   const spotlight = document.getElementById('tour-spotlight');
   if (spotlight) spotlight.style.cssText = '';
   cm('m-invite');
@@ -3764,6 +3811,8 @@ function renderTourStep() {
   if (step.onEnter) step.onEnter();
 
   overlay.classList.add('active');
+  // passthrough 步驟：關掉遮罩與點擊攔截，讓使用者能操作 app（如填寫新增專案表單）
+  overlay.classList.toggle('passthrough', !!step.passthrough);
 
   // Progress
   const progressEl = document.getElementById('tour-progress');
@@ -3777,6 +3826,23 @@ function renderTourStep() {
   if (step.descHtml) { descEl.style.whiteSpace = ''; descEl.innerHTML = step.descHtml; }
   else { descEl.style.whiteSpace = 'pre-line'; descEl.textContent = step.desc || ''; }
 
+  // Optional action button（首次任務流程用，與 Extension 引擎同款）
+  let actionEl = document.getElementById('tour-action');
+  if (!actionEl) {
+    actionEl = document.createElement('div');
+    actionEl.id = 'tour-action';
+    descEl.insertAdjacentElement('afterend', actionEl);
+  }
+  if (step.actionHtml) {
+    actionEl.innerHTML = step.actionHtml;
+    actionEl.style.display = 'block';
+    const createProjBtn = actionEl.querySelector('#tour-create-proj');
+    if (createProjBtn) createProjBtn.addEventListener('click', () => openNewProj());
+  } else {
+    actionEl.innerHTML = '';
+    actionEl.style.display = 'none';
+  }
+
   // Prev/Skip/Next buttons
   const prevBtn = document.getElementById('tour-prev');
   const skipBtn = document.getElementById('tour-skip');
@@ -3785,8 +3851,22 @@ function renderTourStep() {
   const _isLastStep = step.isLast || tourStep === _activeTourSteps.length - 1;
   if (skipBtn) skipBtn.style.display = _isLastStep ? 'none' : '';
   if (nextBtn) nextBtn.textContent = _isLastStep ? '開始使用' : '下一步';
+  // 事件驅動的自動前進（如：建立專案完成後才繼續）
+  if (nextBtn) nextBtn.style.display = step.advanceEvent ? 'none' : '';
+  if (step.advanceEvent) {
+    if (step.waiting) actionEl.insertAdjacentHTML('beforeend', `<div style="margin-top:8px;font-size:11px;color:var(--accent);font-weight:600">${step.waiting}</div>`);
+    document.addEventListener(step.advanceEvent, () => { if (tourActive && _activeTourSteps[tourStep] === step) nextTourStep(); }, { once: true });
+  }
 
-  // Spotlight positioning
+  // Spotlight/bubble 定位：先立即定位一次，等動畫（bottom sheet 滑出、分頁切換）安定後再校正一次
+  positionTourStep(step);
+  setTimeout(() => { if (tourActive && _activeTourSteps[tourStep] === step) positionTourStep(step); }, 380);
+}
+
+function positionTourStep(step) {
+  const spotlight = document.getElementById('tour-spotlight');
+  const bubble = document.getElementById('tour-bubble');
+  if (!spotlight || !bubble) return;
   requestAnimationFrame(() => {
     const rect = getTourTargetRect(step.target);
     if (rect) {
@@ -3796,6 +3876,8 @@ function renderTourStep() {
       document.getElementById('tour-mask').style.display = 'block';
       spotlight.style.cssText = 'display:none';
     }
+    // passthrough 步驟不顯示遮罩（使用者要操作底下的畫面）
+    if (step.passthrough) document.getElementById('tour-mask').style.display = 'none';
 
     // Bubble positioning
     requestAnimationFrame(() => {
@@ -3804,7 +3886,10 @@ function renderTourStep() {
       const vW = window.innerWidth;
       const M = 10;
       let top, left;
-      if (rect) {
+      if (step.forcePos === 'top-right') {
+        top = M;
+        left = vW - bRect.width - M;
+      } else if (rect) {
         const belowTop = rect.top + rect.height + 10;
         const aboveTop = rect.top - bRect.height - 10;
         if (belowTop + bRect.height < vH - M) top = belowTop;
