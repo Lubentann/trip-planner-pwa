@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v43'; // declutter: tour btn to home, one-line day summary, wish count removed
+const CACHE_NAME = 'trip-planner-v44'; // tutorial redesign: first-run task, chapters, hints
 const ASSETS = [
   './',
   './index.html',
