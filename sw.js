@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v45'; // tour fixes: spotlight settle, hint/tour collision, PWA first-run flow
+const CACHE_NAME = 'trip-planner-v46'; // tour entry in header, chapter menu emoji → SVG icons
 const ASSETS = [
   './',
   './index.html',
