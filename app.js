@@ -224,7 +224,7 @@ function showHintOnce(key, anchorSel, text) {
     const b = document.createElement('div');
     b.className = 'ctx-hint';
     b.dataset.hintKey = key;
-    b.innerHTML = `💡 ${text} <button class="ctx-hint-ok">知道了</button>`;
+    b.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.4 1 2.3h6c0-.9.4-1.8 1-2.3A7 7 0 0 0 12 2z"/></svg> ${text} <button class="ctx-hint-ok">知道了</button>`;
     document.body.appendChild(b);
     const r = anchor.getBoundingClientRect();
     b.style.top = Math.max(8, r.top - b.offsetHeight - 8) + 'px';
@@ -940,7 +940,7 @@ function renderHome() {
         <div id="cl-body"></div>
       </div>
     </div>
-    <button id="btn-tour-replay" style="display:flex;align-items:center;gap:5px;margin:18px auto 6px;background:none;border:1px solid var(--border2);border-radius:16px;padding:7px 16px;font-size:12px;color:var(--text3);cursor:pointer;font-family:inherit"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>重新播放教學導覽</button>`;
+`;
 
   el.querySelectorAll('.hstat-click').forEach(s => s.addEventListener('click', () => showTab(s.dataset.goto)));
   el.querySelectorAll('[data-starter-goto]').forEach(s => s.addEventListener('click', () => showTab(s.dataset.starterGoto)));
@@ -949,7 +949,6 @@ function renderHome() {
   if (memBtn) memBtn.addEventListener('click', openMembersModal);
   const clToggle = el.querySelector('#cl-hdr-toggle');
   if (clToggle) clToggle.addEventListener('click', () => { window._clExpanded = !window._clExpanded; renderHome(); });
-  on('btn-tour-replay', 'click', () => openTourMenu());
   clLoad(ap, el.querySelector('#cl-body'));
 }
 
@@ -3398,7 +3397,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Bottom bar
   on('btn-nav-route',  'click', openRouteNav);
   on('btn-open-export','click', openExport);
-  // btn-tour-replay 已移到首頁（renderHome 內綁定）
+  on('btn-tour-replay', 'click', () => openTourMenu());   // header 教學導覽 → 章節選單
   on('tour-next', 'click', nextTourStep);
   on('tour-prev', 'click', prevTourStep);
   on('tour-skip', 'click', () => endTour(false));
@@ -3689,7 +3688,7 @@ const PWA_TOUR_STEPS = [
     target: '#btn-nav-route', tabSwitch: 'timeline',
     descHtml: '<p style="margin:0">點擊可開啟 Google Maps 導航，依照行程順序規劃最佳路線。</p>' },
   { title: '導覽完成！開始規劃旅程',
-    descHtml: '<p style="margin:0 0 8px">你已經了解所有核心功能。</p><p style="margin:0">想再看一次？首頁最下方的「重新播放教學導覽」隨時可以打開。</p>',
+    descHtml: '<p style="margin:0 0 8px">你已經了解所有核心功能。</p><p style="margin:0">想再看一次？右上角的「教學導覽」按鈕隨時可以打開分章教學。</p>',
     isLast: true },
 ];
 
@@ -3742,17 +3741,17 @@ const PWA_FIRST_RUN_STEPS = [
   {
     title: '準備好了！',
     tabSwitch: 'home',
-    descHtml: '<p style="margin:0 0 8px">首頁的「三步驟開始規劃」會陪你完成接下來的每一步。</p><p style="margin:0">想深入了解（旅伴協作、匯出、手機手勢），首頁最下方「重新播放教學導覽」有分章教學。</p>',
+    descHtml: '<p style="margin:0 0 8px">首頁的「三步驟開始規劃」會陪你完成接下來的每一步。</p><p style="margin:0">想深入了解（旅伴協作、匯出、手機手勢），右上角的「教學導覽」按鈕有分章教學。</p>',
     isLast: true, hideSkip: true,
   },
 ];
 
 const TOUR_CHAPTERS = [
-  { id: 'collect',   label: '📍 收藏地點',   steps: [PWA_TOUR_STEPS[5], PWA_TOUR_STEPS[6]] },
-  { id: 'plan',      label: '🗓 安排行程',   steps: [PWA_TOUR_STEPS[7], PWA_TOUR_STEPS[8], PWA_TOUR_STEPS[9], PWA_TOUR_STEPS[10], PWA_TOUR_STEPS[11], PWA_TOUR_STEPS[12]] },
-  { id: 'collab',    label: '👥 旅伴協作',   steps: COLLAB_STEPS },
-  { id: 'mobile',    label: '📱 手機操作',   steps: MOBILE_STEPS },
-  { id: 'checklist', label: '🧳 準備清單',   steps: [PWA_TOUR_STEPS[3], PWA_TOUR_STEPS[4]] },
+  { id: 'collect',   label: '收藏地點', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-7.75 7-13a7 7 0 1 0-14 0c0 5.25 7 13 7 13z"/><circle cx="12" cy="8" r="2.5"/></svg>', steps: [PWA_TOUR_STEPS[5], PWA_TOUR_STEPS[6]] },
+  { id: 'plan',      label: '安排行程', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>', steps: [PWA_TOUR_STEPS[7], PWA_TOUR_STEPS[8], PWA_TOUR_STEPS[9], PWA_TOUR_STEPS[10], PWA_TOUR_STEPS[11], PWA_TOUR_STEPS[12]] },
+  { id: 'collab',    label: '旅伴協作', icon: IC.people, steps: COLLAB_STEPS },
+  { id: 'mobile',    label: '手機操作', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>', steps: MOBILE_STEPS },
+  { id: 'checklist', label: '準備清單', icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="m9 14 2 2 4-4"/></svg>', steps: [PWA_TOUR_STEPS[3], PWA_TOUR_STEPS[4]] },
 ];
 
 let tourActive = false, tourStep = 0;
@@ -3769,7 +3768,7 @@ function startTour(steps = PWA_TOUR_STEPS) {
 function openTourMenu() {
   dismissCtxHints(true);
   $('tour-menu-list').innerHTML = TOUR_CHAPTERS.map(c =>
-    `<button class="tour-chapter-btn" data-chapter="${c.id}" style="text-align:left;padding:12px 14px;font-size:13px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text);font-family:inherit">${c.label}</button>`).join('');
+    `<button class="tour-chapter-btn" data-chapter="${c.id}" style="display:flex;align-items:center;gap:8px;text-align:left;padding:12px 14px;font-size:13px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text);font-family:inherit">${c.icon || ''}<span>${c.label}</span></button>`).join('');
   $('tour-menu-list').querySelectorAll('[data-chapter]').forEach(b => b.addEventListener('click', () => {
     cm('m-tour-menu');
     startTour(TOUR_CHAPTERS.find(c => c.id === b.dataset.chapter).steps);
