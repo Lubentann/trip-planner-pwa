@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trip-planner-v46'; // tour entry in header, chapter menu emoji → SVG icons
+const CACHE_NAME = 'trip-planner-v51'; // mobile: global 16px form-control floor (no iOS zoom) + category tag never wraps
 const ASSETS = [
   './',
   './index.html',
