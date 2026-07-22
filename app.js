@@ -126,7 +126,7 @@ var chrome = window.chromeShim;
 // =============================================================
 //  Constants
 // =============================================================
-const CC    = { 景點:'t-teal', 交通:'t-purple', 住宿:'t-blue', 餐廳:'t-coral', 購物:'t-amber', 其他:'t-gray' };
+const CC    = { 景點:'t-teal', 交通:'t-purple', 住宿:'t-blue', 餐飲:'t-coral', 購物:'t-amber', 其他:'t-gray' };
 const DUR   = { 30:'30分', 60:'1小時', 90:'1.5小時', 120:'2小時', 180:'3小時', 240:'3小時+' };
 const WKDAY = ['日','一','二','三','四','五','六'];
 
@@ -1225,7 +1225,7 @@ function renderTimeline() {
   let html = `<div class="pg-sticky-head">
     <div id="mini-date-bar">${miniBar}</div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 0">
-      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3)"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
+      <div id="date-label-main" style="font-size:12px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px">${timelineView==='overview' ? `全部 ${days.length} 天` : fmtDayLabel(days[currentDayIdx], currentDayIdx, days.length)}${timelineView === 'day' && !_customName ? `<svg id="day-name-add" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="cursor:pointer;flex-shrink:0;color:var(--text3);padding:7px;margin:-7px;box-sizing:content-box"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>` : ''}</div>
       ${viewToggle}
     </div>
     ${timelineView === 'day' && _customName ? `<div id="day-name-subtitle">- ${esc(_customName)}</div>` : ''}`;
@@ -3878,28 +3878,39 @@ function positionTourStep(step) {
     // passthrough 步驟不顯示遮罩（使用者要操作底下的畫面）
     if (step.passthrough) document.getElementById('tour-mask').style.display = 'none';
 
-    // Bubble positioning
+    // Bubble positioning — prefer below, then above; if neither fits, use the
+    // roomier side and cap the bubble height to it (internal scroll) instead of
+    // centering over the spotlight (fixes the very-small-screen overlap bug).
     requestAnimationFrame(() => {
-      const bRect = bubble.getBoundingClientRect();
+      bubble.style.maxHeight = '';   // reset; may re-cap below
+      let bRect = bubble.getBoundingClientRect();
       const vH = window.innerHeight;
       const vW = window.innerWidth;
-      const M = 10;
+      const M = 10, GAP = 10;
       let top, left;
       if (step.forcePos === 'top-right') {
         top = M;
         left = vW - bRect.width - M;
       } else if (rect) {
-        const belowTop = rect.top + rect.height + 10;
-        const aboveTop = rect.top - bRect.height - 10;
-        if (belowTop + bRect.height < vH - M) top = belowTop;
-        else if (aboveTop >= M) top = aboveTop;
-        else top = Math.max(M, Math.round((vH - bRect.height) / 2));
+        const spaceBelow = vH - (rect.top + rect.height) - GAP - M;
+        const spaceAbove = rect.top - GAP - M;
+        if (bRect.height <= spaceBelow) {
+          top = rect.top + rect.height + GAP;
+        } else if (bRect.height <= spaceAbove) {
+          top = rect.top - bRect.height - GAP;
+        } else if (spaceBelow >= spaceAbove) {
+          bubble.style.maxHeight = Math.max(80, spaceBelow) + 'px';
+          top = rect.top + rect.height + GAP;
+        } else {
+          bubble.style.maxHeight = Math.max(80, spaceAbove) + 'px';
+          bRect = bubble.getBoundingClientRect();   // height changed after cap
+          top = rect.top - bRect.height - GAP;
+        }
         left = Math.max(M, Math.min(rect.left, vW - bRect.width - M));
       } else {
         top = Math.max(M, Math.round((vH - bRect.height) / 2));
         left = Math.max(M, Math.round((vW - bRect.width) / 2));
       }
-      top  = Math.min(top,  vH - bRect.height - M);
       left = Math.min(left, vW - bRect.width  - M);
       bubble.style.top  = `${Math.max(M, top)}px`;
       bubble.style.left = `${Math.max(M, left)}px`;
