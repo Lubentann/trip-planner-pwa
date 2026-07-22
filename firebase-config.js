@@ -230,7 +230,10 @@ window.fbWrite = async function(data) {
       endDate:     proj.endDate     || '',
       color:       proj.color       || '',
       createdAt:   proj.createdAt   || Date.now(),
-      ownerId:     user.uid,
+      // Preserve the real owner. Only a brand-new project (no ownerId yet) is
+      // owned by the creator. Never overwrite an existing project's ownerId to
+      // self — that would hijack ownership and be rejected by the security rules.
+      ownerId:     proj.ownerId || user.uid,
     };
     const wishlist = _arrayToMap(data.wishlist?.[pid]);
     const trips    = _arrayToMap(data.trips?.[pid]);
